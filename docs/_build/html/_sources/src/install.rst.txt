@@ -39,7 +39,7 @@ Follow these steps to install DAS4Whales:
 
     .. code-block:: bash
     
-        pip install 'git+https://github.com/DAS4Whales/DAS4Whales'
+        pip install das4whales
 
 4. Verify the installation:
 
@@ -48,6 +48,15 @@ Follow these steps to install DAS4Whales:
         pip list | grep das4whales
 
     This command should display the version number of DAS4Whales.
+
+Optional Dependencies
+---------------------
+
+For ASN interrogator support, you'll need to install SimpleDAS separately:
+
+.. code-block:: bash
+
+    pip install git+https://github.com/qgoestch/simpleDAS
 
 Usage
 -----

@@ -44,7 +44,7 @@ Please, report any bugs or issues you may have using this package and notebook e
 
 
 ```python
-!python3 -m pip install 'git+https://github.com/DAS4Whales/DAS4Whales'
+!python3 -m pip install das4whales
 ```
 
 

@@ -285,19 +285,24 @@
 <span class="sd">Date: 2023-2024-2025</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">scipy.signal</span> <span class="k">as</span> <span class="nn">sp</span>
-<span class="kn">import</span> <span class="nn">librosa</span>
-<span class="kn">import</span> <span class="nn">sparse</span>
-<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">ndimage</span>
-<span class="kn">from</span> <span class="nn">numpy.fft</span> <span class="kn">import</span> <span class="n">fft2</span><span class="p">,</span> <span class="n">fftfreq</span><span class="p">,</span> <span class="n">fftshift</span><span class="p">,</span> <span class="n">ifft2</span><span class="p">,</span> <span class="n">ifftshift</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Any</span>
+
 <span class="kn">import</span> <span class="nn">cv2</span>
-<span class="kn">import</span> <span class="nn">deprecation</span>  
+<span class="kn">import</span> <span class="nn">deprecation</span>
+<span class="kn">import</span> <span class="nn">librosa</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.fft</span> <span class="k">as</span> <span class="nn">sfft</span>
+<span class="kn">import</span> <span class="nn">scipy.signal</span> <span class="k">as</span> <span class="nn">sp</span>
+<span class="kn">import</span> <span class="nn">sparse</span>
+<span class="kn">from</span> <span class="nn">numpy.fft</span> <span class="kn">import</span> <span class="n">fft2</span><span class="p">,</span> <span class="n">fftfreq</span><span class="p">,</span> <span class="n">fftshift</span><span class="p">,</span> <span class="n">ifft2</span><span class="p">,</span> <span class="n">ifftshift</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">ndimage</span>  
 
 <span class="c1"># Digital sampling</span>
 <div class="viewcode-block" id="resample">
 <a class="viewcode-back" href="../../src/dsp.html#das4whales.dsp.resample">[docs]</a>
-<span class="k">def</span> <span class="nf">resample</span><span class="p">(</span><span class="n">tr</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">desired_fs</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">resample</span><span class="p">(</span><span class="n">tr</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">fs</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">desired_fs</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Resample a multi-channel signal to a desired sampling frequency.</span>
 
@@ -341,7 +346,7 @@
 <span class="c1"># Transformations</span>
 <div class="viewcode-block" id="get_fx">
 <a class="viewcode-back" href="../../src/dsp.html#das4whales.dsp.get_fx">[docs]</a>
-<span class="k">def</span> <span class="nf">get_fx</span><span class="p">(</span><span class="n">trace</span><span class="p">,</span> <span class="n">nfft</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">get_fx</span><span class="p">(</span><span class="n">trace</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">nfft</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Apply a fast Fourier transform (FFT) to each channel of the strain data matrix.</span>
 
@@ -367,7 +372,7 @@
 
 <div class="viewcode-block" id="get_spectrogram">
 <a class="viewcode-back" href="../../src/dsp.html#das4whales.dsp.get_spectrogram">[docs]</a>
-<span class="k">def</span> <span class="nf">get_spectrogram</span><span class="p">(</span><span class="n">waveform</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">nfft</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">overlap_pct</span><span class="o">=</span><span class="mf">0.8</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">get_spectrogram</span><span class="p">(</span><span class="n">waveform</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">fs</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">nfft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">128</span><span class="p">,</span> <span class="n">overlap_pct</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.8</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Get the spectrogram of a single channel</span>
 
@@ -1387,9 +1392,11 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">tapering</span><span class="p">:</span>
         <span class="n">trace</span> <span class="o">=</span> <span class="n">taper_data</span><span class="p">(</span><span class="n">trace</span><span class="p">)</span>
+    
+    <span class="n">trace</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">trace</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex64</span><span class="p">)</span>
 
     <span class="c1"># Calculate the frequency-wavenumber spectrum</span>
-    <span class="n">fk_trace</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft2</span><span class="p">(</span><span class="n">trace</span><span class="p">))</span>
+    <span class="n">fk_trace</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">sfft</span><span class="o">.</span><span class="n">fft2</span><span class="p">(</span><span class="n">trace</span><span class="p">,</span> <span class="n">workers</span><span class="o">=-</span><span class="mi">1</span><span class="p">))</span>
 
     <span class="c1"># Apply the filter</span>
     <span class="n">fk_filtered_trace</span> <span class="o">=</span> <span class="n">fk_trace</span> <span class="o">*</span> <span class="n">fk_filter_matrix</span>
@@ -1398,7 +1405,7 @@
         <span class="c1"># Convert the sparse matrix to a dense format</span>
         <span class="n">fk_filtered_trace</span> <span class="o">=</span> <span class="n">fk_filtered_trace</span><span class="o">.</span><span class="n">todense</span><span class="p">()</span>
     <span class="c1"># Back to the t-x domain</span>
-    <span class="n">trace</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifft2</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifftshift</span><span class="p">(</span><span class="n">fk_filtered_trace</span><span class="p">))</span>
+    <span class="n">trace</span> <span class="o">=</span> <span class="n">sfft</span><span class="o">.</span><span class="n">ifft2</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifftshift</span><span class="p">(</span><span class="n">fk_filtered_trace</span><span class="p">),</span> <span class="n">workers</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">trace</span><span class="o">.</span><span class="n">real</span></div>
 

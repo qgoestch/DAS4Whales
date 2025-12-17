@@ -430,10 +430,14 @@
     <span class="n">opticald_n</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">opticald_s</span> <span class="o">=</span> <span class="p">[]</span>
 
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="mi">10000</span><span class="o">/</span><span class="mi">2</span><span class="o">-</span><span class="n">df_north</span><span class="p">[</span><span class="s2">&quot;chan_idx&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">len</span><span class="p">(</span><span class="n">df_north</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="mi">10000</span><span class="o">/</span><span class="mi">2</span><span class="p">)):</span>
+
+    <span class="n">disp_step</span> <span class="o">=</span> <span class="mi">10000</span> <span class="c1"># [m]</span>
+    <span class="n">dx_ch</span> <span class="o">=</span> <span class="mf">2.0419</span> <span class="c1"># [m]</span>
+    <span class="n">idx_step</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">disp_step</span> <span class="o">/</span> <span class="n">dx_ch</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">idx_step</span><span class="o">-</span><span class="n">df_north</span><span class="p">[</span><span class="s2">&quot;chan_idx&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">len</span><span class="p">(</span><span class="n">df_north</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="mi">10000</span><span class="o">/</span><span class="mi">2</span><span class="p">)):</span>
         <span class="n">opticald_n</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">df_north</span><span class="p">[</span><span class="s1">&#39;lon&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">],</span> <span class="n">df_north</span><span class="p">[</span><span class="s1">&#39;lat&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">]))</span>
 
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="mi">10000</span><span class="o">/</span><span class="mi">2</span><span class="o">-</span><span class="n">df_south</span><span class="p">[</span><span class="s2">&quot;chan_idx&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">len</span><span class="p">(</span><span class="n">df_south</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="mi">10000</span><span class="o">/</span><span class="mi">2</span><span class="p">)):</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">idx_step</span><span class="o">-</span><span class="n">df_south</span><span class="p">[</span><span class="s2">&quot;chan_idx&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">len</span><span class="p">(</span><span class="n">df_south</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="mi">10000</span><span class="o">/</span><span class="mi">2</span><span class="p">)):</span>
         <span class="n">opticald_s</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">df_south</span><span class="p">[</span><span class="s1">&#39;lon&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">],</span> <span class="n">df_south</span><span class="p">[</span><span class="s1">&#39;lat&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">]))</span>
 
     <span class="n">colors_undersea</span> <span class="o">=</span> <span class="n">cmo</span><span class="o">.</span><span class="n">deep_r</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">256</span><span class="p">))</span> <span class="c1"># blue colors for under the sea</span>
@@ -522,10 +526,14 @@
     <span class="n">opticald_n</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">opticald_s</span> <span class="o">=</span> <span class="p">[]</span>
 
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="mi">10000</span><span class="o">/</span><span class="mi">2</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">df_north</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="mi">10000</span><span class="o">/</span><span class="mi">2</span><span class="p">)):</span>
+    <span class="n">disp_step</span> <span class="o">=</span> <span class="mi">10000</span> <span class="c1"># [m]</span>
+    <span class="n">dx_ch</span> <span class="o">=</span> <span class="mf">2.0419</span> <span class="c1"># [m]</span>
+    <span class="n">idx_step</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">disp_step</span> <span class="o">/</span> <span class="n">dx_ch</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">idx_step</span><span class="o">-</span><span class="n">df_north</span><span class="p">[</span><span class="s2">&quot;chan_idx&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">len</span><span class="p">(</span><span class="n">df_north</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="mi">10000</span><span class="o">/</span><span class="mi">2</span><span class="p">)):</span>
         <span class="n">opticald_n</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">df_north</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">],</span> <span class="n">df_north</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">]))</span>
 
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="mi">10000</span><span class="o">/</span><span class="mi">2</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">df_south</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="mi">10000</span><span class="o">/</span><span class="mi">2</span><span class="p">)):</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">idx_step</span><span class="o">-</span><span class="n">df_north</span><span class="p">[</span><span class="s2">&quot;chan_idx&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">len</span><span class="p">(</span><span class="n">df_south</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="mi">10000</span><span class="o">/</span><span class="mi">2</span><span class="p">)):</span>
         <span class="n">opticald_s</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">df_south</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">],</span> <span class="n">df_south</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">]))</span>
 
     <span class="c1"># Chose a colormap to be sure that values above 0 are white, and values below 0 are blue</span>
@@ -712,8 +720,8 @@
 <span class="sd">        The longitude.</span>
 <span class="sd">    lat : float</span>
 <span class="sd">        The latitude.</span>
-<span class="sd">    zone : int</span>
-<span class="sd">        The UTM zone.</span>
+<span class="sd">    zone : int, optional</span>
+<span class="sd">        The UTM zone (default is 10).</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -734,6 +742,42 @@
     <span class="n">utm_x</span><span class="p">,</span> <span class="n">utm_y</span> <span class="o">=</span> <span class="n">transformer</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">lon</span><span class="p">,</span> <span class="n">lat</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">utm_x</span><span class="p">,</span> <span class="n">utm_y</span></div>
+
+
+
+<div class="viewcode-block" id="utm_to_latlon">
+<a class="viewcode-back" href="../../api/das4whales.html#das4whales.map.utm_to_latlon">[docs]</a>
+<span class="k">def</span> <span class="nf">utm_to_latlon</span><span class="p">(</span><span class="n">utm_x</span><span class="p">,</span> <span class="n">utm_y</span><span class="p">,</span> <span class="n">zone</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Convert UTM coordinates to latitude and longitude for a specified zone.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    utm_x : float</span>
+<span class="sd">        The UTM x coordinate.</span>
+<span class="sd">    utm_y : float</span>
+<span class="sd">        The UTM y coordinate.</span>
+<span class="sd">    zone : int, optional</span>
+<span class="sd">        The UTM zone (default is 10).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    lon : float</span>
+<span class="sd">        The longitude.</span>
+<span class="sd">    lat : float</span>
+<span class="sd">        The latitude.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Define the UTM coordinate system for the specified zone and the WGS84 coordinate system</span>
+    <span class="n">utm_zone</span> <span class="o">=</span> <span class="n">pyproj</span><span class="o">.</span><span class="n">CRS</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;EPSG:326</span><span class="si">{</span><span class="n">zone</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">wgs84</span> <span class="o">=</span> <span class="n">pyproj</span><span class="o">.</span><span class="n">CRS</span><span class="p">(</span><span class="s2">&quot;EPSG:4326&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Create a transformer object to convert from UTM to WGS84</span>
+    <span class="n">transformer</span> <span class="o">=</span> <span class="n">pyproj</span><span class="o">.</span><span class="n">Transformer</span><span class="o">.</span><span class="n">from_crs</span><span class="p">(</span><span class="n">utm_zone</span><span class="p">,</span> <span class="n">wgs84</span><span class="p">,</span> <span class="n">always_xy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Perform the transformation</span>
+    <span class="n">lon</span><span class="p">,</span> <span class="n">lat</span> <span class="o">=</span> <span class="n">transformer</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">utm_x</span><span class="p">,</span> <span class="n">utm_y</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">lon</span><span class="p">,</span> <span class="n">lat</span></div>
 
 </pre></div>
         </article>

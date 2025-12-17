@@ -286,21 +286,32 @@
 <span class="sd">Date: 2023-2024-2025</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
-<span class="kn">import</span> <span class="nn">h5py</span>
-<span class="kn">import</span> <span class="nn">wget</span>
-<span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
 <span class="kn">import</span> <span class="nn">csv</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timezone</span><span class="p">,</span> <span class="n">timedelta</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Any</span>
+<span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">urljoin</span>
 <span class="kn">import</span> <span class="nn">dask.array</span> <span class="k">as</span> <span class="nn">da</span>
-<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timezone</span>
-<span class="kn">from</span> <span class="nn">simpledas</span> <span class="kn">import</span> <span class="n">simpleDASreader</span> <span class="k">as</span> <span class="n">sd</span>
+<span class="kn">import</span> <span class="nn">h5py</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">wget</span>
 <span class="kn">from</span> <span class="nn">nptdms</span> <span class="kn">import</span> <span class="n">TdmsFile</span>
+<span class="c1"># Check if simpledas is installed (optional dependency for ASN interrogator support)</span>
+<span class="k">try</span> <span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">simpledas</span> <span class="kn">import</span> <span class="n">simpleDASreader</span> <span class="k">as</span> <span class="n">sd</span>
+    <span class="n">SIMPLEDAS_AVAILABLE</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">SIMPLEDAS_AVAILABLE</span> <span class="o">=</span> <span class="kc">False</span>
 
 <span class="c1"># Test for the package</span>
 <div class="viewcode-block" id="hello_world_das_package">
 <a class="viewcode-back" href="../../src/data_handle.html#das4whales.data_handle.hello_world_das_package">[docs]</a>
-<span class="k">def</span> <span class="nf">hello_world_das_package</span><span class="p">():</span>
+<span class="k">def</span> <span class="nf">hello_world_das_package</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Print a hello world message for the package.&quot;&quot;&quot;</span>
     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Yepee! You now have access to all the functionalities of the das4whale python package!&quot;</span><span class="p">)</span></div>
 
 
@@ -309,7 +320,7 @@
 <span class="c1"># Definition of the functions for DAS data conditioning</span>
 <div class="viewcode-block" id="get_acquisition_parameters">
 <a class="viewcode-back" href="../../src/data_handle.html#das4whales.data_handle.get_acquisition_parameters">[docs]</a>
-<span class="k">def</span> <span class="nf">get_acquisition_parameters</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="n">interrogator</span><span class="o">=</span><span class="s1">&#39;optasense&#39;</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">get_acquisition_parameters</span><span class="p">(</span><span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">interrogator</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;optasense&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Retrieve acquisition parameters based on the specified interrogator.</span>
 
@@ -361,7 +372,7 @@
 
 <div class="viewcode-block" id="get_metadata_optasense">
 <a class="viewcode-back" href="../../src/data_handle.html#das4whales.data_handle.get_metadata_optasense">[docs]</a>
-<span class="k">def</span> <span class="nf">get_metadata_optasense</span><span class="p">(</span><span class="n">filepath</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">get_metadata_optasense</span><span class="p">(</span><span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Gets DAS acquisition parameters for the optasense interrogator e.g., OOI South C1 data</span>
 
 <span class="sd">    Parameters</span>
@@ -405,7 +416,7 @@
 
 <div class="viewcode-block" id="get_metadata_silixa">
 <a class="viewcode-back" href="../../src/data_handle.html#das4whales.data_handle.get_metadata_silixa">[docs]</a>
-<span class="k">def</span> <span class="nf">get_metadata_silixa</span><span class="p">(</span><span class="n">filepath</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">get_metadata_silixa</span><span class="p">(</span><span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Gets DAS acquisition parameters for the silixa interrogator</span>
 
@@ -452,7 +463,7 @@
 
 <div class="viewcode-block" id="get_metadata_asn">
 <a class="viewcode-back" href="../../src/data_handle.html#das4whales.data_handle.get_metadata_asn">[docs]</a>
-<span class="k">def</span> <span class="nf">get_metadata_asn</span><span class="p">(</span><span class="n">filepath</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">get_metadata_asn</span><span class="p">(</span><span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Gets DAS acquisition parameters for the ASN interrogator e.g., Svalbard data</span>
 
@@ -491,12 +502,12 @@
 
 <div class="viewcode-block" id="get_metadata_onyx">
 <a class="viewcode-back" href="../../src/data_handle.html#das4whales.data_handle.get_metadata_onyx">[docs]</a>
-<span class="k">def</span> <span class="nf">get_metadata_onyx</span><span class="p">(</span><span class="n">filepath</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">get_metadata_onyx</span><span class="p">(</span><span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Gets DAS acquisition parameters for the onyx interrogator </span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    filepath : string</span>
+<span class="sd">    filepath : str</span>
 <span class="sd">        a string containing the full path to the data to load</span>
 
 <span class="sd">    Returns</span>
@@ -535,7 +546,7 @@
 <span class="c1"># Load/download das data as strain</span>
 <div class="viewcode-block" id="raw2strain">
 <a class="viewcode-back" href="../../src/data_handle.html#das4whales.data_handle.raw2strain">[docs]</a>
-<span class="k">def</span> <span class="nf">raw2strain</span><span class="p">(</span><span class="n">trace</span><span class="p">,</span> <span class="n">metadata</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">raw2strain</span><span class="p">(</span><span class="n">trace</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Transform the amplitude of raw das data from strain-rate to strain according to scale factor</span>
 
@@ -560,7 +571,7 @@
 
 <div class="viewcode-block" id="load_das_data">
 <a class="viewcode-back" href="../../src/data_handle.html#das4whales.data_handle.load_das_data">[docs]</a>
-<span class="k">def</span> <span class="nf">load_das_data</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">selected_channels</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">interrogator</span><span class="o">=</span><span class="s1">&#39;optasense&#39;</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">load_das_data</span><span class="p">(</span><span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">selected_channels</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">interrogator</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;optasense&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">datetime</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Load the DAS data corresponding to the input file name as strain according to the selected channels.</span>
 
@@ -615,6 +626,9 @@
             <span class="n">file_begin_time_utc</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">(</span><span class="n">raw_data_time</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="mf">1e-6</span><span class="p">)</span>
 
     <span class="k">elif</span> <span class="n">interrogator</span> <span class="o">==</span> <span class="s1">&#39;asn&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">SIMPLEDAS_AVAILABLE</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;simpledas package is required to load ASN interrogator data. Please install it using: pip install git+https://github.com/qgoestch/simpleDAS&quot;</span><span class="p">)</span>
+        
         <span class="n">dfdas</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">load_DAS_files</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">chIndex</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">samples</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sensitivitySelect</span><span class="o">=-</span><span class="mi">3</span><span class="p">,</span>
                                   <span class="n">userSensitivity</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;sensitivity&#39;</span><span class="p">:</span> <span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;scale_factor&#39;</span><span class="p">],</span>
                                                    <span class="s1">&#39;sensitivityUnit&#39;</span><span class="p">:</span> <span class="s1">&#39;rad/(m*strain)&#39;</span><span class="p">},</span>
@@ -643,7 +657,7 @@
 
 <div class="viewcode-block" id="load_mtpl_das_data">
 <a class="viewcode-back" href="../../src/data_handle.html#das4whales.data_handle.load_mtpl_das_data">[docs]</a>
-<span class="k">def</span> <span class="nf">load_mtpl_das_data</span><span class="p">(</span><span class="n">filepaths</span><span class="p">,</span> <span class="n">selected_channels</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">,</span> <span class="n">time_window</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">load_mtpl_das_data</span><span class="p">(</span><span class="n">filepaths</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">selected_channels</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">timestamp</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">time_window</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">datetime</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Load the DAS data corresponding to the input file names as strain according to the selected channels. Takes multiple files as input and concatenates them along the time axis starting from the input timestamp for the input time window.</span>
 
@@ -728,7 +742,7 @@
 
 <div class="viewcode-block" id="dl_file">
 <a class="viewcode-back" href="../../src/data_handle.html#das4whales.data_handle.dl_file">[docs]</a>
-<span class="k">def</span> <span class="nf">dl_file</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">dl_file</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Download the file at the given url</span>
 
 <span class="sd">    Parameters</span>
@@ -756,7 +770,7 @@
 <span class="c1"># Load cable position information</span>
 <div class="viewcode-block" id="load_cable_coordinates">
 <a class="viewcode-back" href="../../src/data_handle.html#das4whales.data_handle.load_cable_coordinates">[docs]</a>
-<span class="k">def</span> <span class="nf">load_cable_coordinates</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="n">dx</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">load_cable_coordinates</span><span class="p">(</span><span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dx</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Load the cable coordinates from a text file.</span>
 
@@ -784,7 +798,7 @@
 
 <div class="viewcode-block" id="get_cable_lat_lon_depth">
 <a class="viewcode-back" href="../../src/data_handle.html#das4whales.data_handle.get_cable_lat_lon_depth">[docs]</a>
-<span class="k">def</span> <span class="nf">get_cable_lat_lon_depth</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="n">selected_channels</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">get_cable_lat_lon_depth</span><span class="p">(</span><span class="n">file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">selected_channels</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Extract latitude, longitude, and depth information from a CSV or TXT file for selected cable channels.</span>
 
@@ -841,7 +855,7 @@
 <span class="c1"># Load annotation files</span>
 <div class="viewcode-block" id="load_annotation_csv">
 <a class="viewcode-back" href="../../src/data_handle.html#das4whales.data_handle.load_annotation_csv">[docs]</a>
-<span class="k">def</span> <span class="nf">load_annotation_csv</span><span class="p">(</span><span class="n">filepath</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">load_annotation_csv</span><span class="p">(</span><span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Load the annotation data from a CSV file. The file must include the following columns:</span>
 <span class="sd">    &#39;file_name&#39;, &#39;apex&#39;, &#39;offset&#39;, &#39;start_time&#39;, &#39;whale_side&#39;, as output from the DAS Source Locator</span>
@@ -873,7 +887,7 @@
 
 <div class="viewcode-block" id="calc_dist_to_xidx">
 <a class="viewcode-back" href="../../src/data_handle.html#das4whales.data_handle.calc_dist_to_xidx">[docs]</a>
-<span class="k">def</span> <span class="nf">calc_dist_to_xidx</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">selected_channels_m</span><span class="p">,</span> <span class="n">selected_channels</span><span class="p">,</span> <span class="n">dx</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">calc_dist_to_xidx</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">selected_channels_m</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">selected_channels</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">dx</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Calculate the index of the channel closest to the given distance.</span>
 
@@ -899,7 +913,7 @@
 
 <div class="viewcode-block" id="get_selected_channels">
 <a class="viewcode-back" href="../../src/data_handle.html#das4whales.data_handle.get_selected_channels">[docs]</a>
-<span class="k">def</span> <span class="nf">get_selected_channels</span><span class="p">(</span><span class="n">selected_channels_m</span><span class="p">,</span> <span class="n">dx</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">get_selected_channels</span><span class="p">(</span><span class="n">selected_channels_m</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">dx</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Get the selected channels in channel numbers.</span>
 
@@ -922,6 +936,59 @@
                                            <span class="c1"># numbers</span>
     <span class="k">return</span> <span class="n">selected_channels</span></div>
 
+
+
+<div class="viewcode-block" id="extract_timestamp">
+<a class="viewcode-back" href="../../src/data_handle.html#das4whales.data_handle.extract_timestamp">[docs]</a>
+<span class="k">def</span> <span class="nf">extract_timestamp</span><span class="p">(</span><span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract timestamp from filename in format YYYY-MM-DDTHHMMSSZ.&quot;&quot;&quot;</span>
+    <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;(\d</span><span class="si">{4}</span><span class="s1">-\d</span><span class="si">{2}</span><span class="s1">-\d</span><span class="si">{2}</span><span class="s1">T\d</span><span class="si">{6}</span><span class="s1">)Z&#39;</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1">T%H%M%S&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tzinfo</span><span class="o">=</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">None</span></div>
+
+
+
+<div class="viewcode-block" id="generate_file_list">
+<a class="viewcode-back" href="../../src/data_handle.html#das4whales.data_handle.generate_file_list">[docs]</a>
+<span class="k">def</span> <span class="nf">generate_file_list</span><span class="p">(</span><span class="n">base_url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">start_file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">duration</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generate a list of file URLs that correspond to a given time range, starting from a known file.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    base_url : str</span>
+<span class="sd">        The base URL where the files are hosted.</span>
+<span class="sd">    start_file : str</span>
+<span class="sd">        Filename of the first file to use as reference.</span>
+<span class="sd">    duration : int</span>
+<span class="sd">        Duration in seconds.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    list of str</span>
+<span class="sd">        List of full file URLs covering the time range.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Extract start time from filename</span>
+    <span class="n">start_time</span> <span class="o">=</span> <span class="n">extract_timestamp</span><span class="p">(</span><span class="n">start_file</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">start_time</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Could not extract timestamp from filename.&quot;</span><span class="p">)</span>
+    
+    <span class="n">selected_files</span> <span class="o">=</span> <span class="p">[</span><span class="n">urljoin</span><span class="p">(</span><span class="n">base_url</span><span class="p">,</span> <span class="n">start_file</span><span class="p">)]</span>
+    <span class="n">accumulated_time</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">current_file</span> <span class="o">=</span> <span class="n">start_file</span>
+    
+    <span class="k">while</span> <span class="n">accumulated_time</span> <span class="o">&lt;</span> <span class="n">duration</span><span class="p">:</span>
+        <span class="c1"># Infer the next file timestamp by checking the difference between current and next</span>
+        <span class="n">next_time</span> <span class="o">=</span> <span class="n">start_time</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>  <span class="c1"># Default to 60s step</span>
+        <span class="n">next_filename</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;(\d</span><span class="si">{4}</span><span class="s1">-\d</span><span class="si">{2}</span><span class="s1">-\d</span><span class="si">{2}</span><span class="s1">T\d</span><span class="si">{6}</span><span class="s1">)Z&#39;</span><span class="p">,</span> <span class="n">next_time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1">T%H%M%S&#39;</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;Z&#39;</span><span class="p">,</span> <span class="n">current_file</span><span class="p">)</span>
+        
+        <span class="n">selected_files</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">urljoin</span><span class="p">(</span><span class="n">base_url</span><span class="p">,</span> <span class="n">next_filename</span><span class="p">))</span>
+        <span class="n">accumulated_time</span> <span class="o">+=</span> <span class="mi">60</span>  <span class="c1"># Assume 60s duration per file; adjust as needed</span>
+        <span class="n">start_time</span> <span class="o">=</span> <span class="n">next_time</span>
+        <span class="n">current_file</span> <span class="o">=</span> <span class="n">next_filename</span>
+    
+    <span class="k">return</span> <span class="n">selected_files</span></div>
 
 </pre></div>
         </article>

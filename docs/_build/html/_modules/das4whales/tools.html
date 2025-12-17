@@ -215,6 +215,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../../index.html">
   
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo only-light" src="../../_static/DAS4Whales_logo.png" alt="Light Logo"/>
+    <img class="sidebar-logo only-dark" src="../../_static/DAS4Whales_logo.png" alt="Dark Logo"/>
+  </div>
   
   <span class="sidebar-brand-text">DAS4Whales  documentation</span>
   
@@ -272,16 +276,21 @@
         </div>
         <article role="main" id="furo-main-content">
           <h1>Source code for das4whales.tools</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">matplotlib</span> <span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
-<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
-<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">signal</span><span class="p">,</span> <span class="n">ndimage</span>
+<span></span><span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Any</span>
+
 <span class="kn">import</span> <span class="nn">dask</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
+<span class="kn">from</span> <span class="nn">matplotlib</span> <span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">signal</span><span class="p">,</span> <span class="n">ndimage</span>
+
 
 <div class="viewcode-block" id="fk_filt_chunk">
 <a class="viewcode-back" href="../../api/das4whales.html#das4whales.tools.fk_filt_chunk">[docs]</a>
-<span class="k">def</span> <span class="nf">fk_filt_chunk</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="n">tint</span><span class="p">,</span><span class="n">fs</span><span class="p">,</span><span class="n">xint</span><span class="p">,</span><span class="n">dx</span><span class="p">,</span><span class="n">c_min</span><span class="p">,</span><span class="n">c_max</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">fk_filt_chunk</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">,</span> <span class="n">tint</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">fs</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">xint</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">dx</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">c_min</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">c_max</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">    fk_filt_chunk - perform fk filtering on single chunk of DAS data</span>
 
@@ -337,7 +346,7 @@
 
 <div class="viewcode-block" id="fk_filt">
 <a class="viewcode-back" href="../../api/das4whales.html#das4whales.tools.fk_filt">[docs]</a>
-<span class="k">def</span> <span class="nf">fk_filt</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="n">tint</span><span class="p">,</span><span class="n">fs</span><span class="p">,</span><span class="n">xint</span><span class="p">,</span><span class="n">dx</span><span class="p">,</span><span class="n">c_min</span><span class="p">,</span><span class="n">c_max</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">fk_filt</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">,</span> <span class="n">tint</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">fs</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">xint</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">dx</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">c_min</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">c_max</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">    fk_filt - perform fk filtering on DAS data</span>
 
@@ -361,7 +370,7 @@
 
 
 
-<span class="k">def</span> <span class="nf">_energy_TimeDomain_chunk</span><span class="p">(</span><span class="n">da</span><span class="p">,</span> <span class="n">time_dim</span><span class="o">=</span><span class="s1">&#39;time&#39;</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">_energy_TimeDomain_chunk</span><span class="p">(</span><span class="n">da</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">,</span> <span class="n">time_dim</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;time&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">    _energy_TimeDomain_chunk - chunkwise function for energy_TimeDomain</span>
 
@@ -383,7 +392,7 @@
 
 <div class="viewcode-block" id="energy_TimeDomain">
 <a class="viewcode-back" href="../../api/das4whales.html#das4whales.tools.energy_TimeDomain">[docs]</a>
-<span class="k">def</span> <span class="nf">energy_TimeDomain</span><span class="p">(</span><span class="n">da</span><span class="p">,</span> <span class="n">time_dim</span><span class="o">=</span><span class="s1">&#39;time&#39;</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">energy_TimeDomain</span><span class="p">(</span><span class="n">da</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">,</span> <span class="n">time_dim</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;time&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">    energy_TimeDomain - calculate energy in time domain using parsevals theorem</span>
 <span class="sd">        energy is calculated for each chunk in time_dim</span>
@@ -443,7 +452,7 @@
 <span class="c1"># I think everything below this is implemented in xrsignal</span>
 <div class="viewcode-block" id="filtfilt">
 <a class="viewcode-back" href="../../api/das4whales.html#das4whales.tools.filtfilt">[docs]</a>
-<span class="k">def</span> <span class="nf">filtfilt</span><span class="p">(</span><span class="n">da</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">filtfilt</span><span class="p">(</span><span class="n">da</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">    filtfilt - this is an implentation of [scipy.signal.fitlfilt](https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.filtfilt.html)</span>
 <span class="sd">    This will filter the DAS data in time for each chunk. This process maps chunks and will therefore have error at the end of chunks in time.</span>
@@ -475,7 +484,7 @@
 
 <div class="viewcode-block" id="filtfilt_chunk">
 <a class="viewcode-back" href="../../api/das4whales.html#das4whales.tools.filtfilt_chunk">[docs]</a>
-<span class="k">def</span> <span class="nf">filtfilt_chunk</span><span class="p">(</span><span class="n">da</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="s1">&#39;time&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">filtfilt_chunk</span><span class="p">(</span><span class="n">da</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;time&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">    converts dataarray to numpy, sends it to signal.filtfilt and then reinhereits all coordinates</span>
 
@@ -500,7 +509,7 @@
 
 <div class="viewcode-block" id="spec">
 <a class="viewcode-back" href="../../api/das4whales.html#das4whales.tools.spec">[docs]</a>
-<span class="k">def</span> <span class="nf">spec</span><span class="p">(</span><span class="n">da</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">spec</span><span class="p">(</span><span class="n">da</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">    very quick implementation to calculate spectrogram</span>
 <span class="sd">        PSD is calculated for every chunk</span>
@@ -517,7 +526,7 @@
 
 
 
-<span class="k">def</span> <span class="nf">__spec_chunk</span><span class="p">(</span><span class="n">da</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">__spec_chunk</span><span class="p">(</span><span class="n">da</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">    compute PSD for single chunk</span>
 
@@ -530,7 +539,7 @@
 
 <div class="viewcode-block" id="disp_comprate">
 <a class="viewcode-back" href="../../api/das4whales.html#das4whales.tools.disp_comprate">[docs]</a>
-<span class="k">def</span> <span class="nf">disp_comprate</span><span class="p">(</span><span class="n">fk_filter</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">disp_comprate</span><span class="p">(</span><span class="n">fk_filter</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Display the sizes of the f-k filter matrix (sparse and dense version) and print the compression ratio</span>
 
 <span class="sd">    Parameters</span>

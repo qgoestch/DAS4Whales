@@ -285,19 +285,24 @@
 <span class="sd">Date: 2023-2024</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">concurrent.futures</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Any</span>
+
 <span class="kn">import</span> <span class="nn">librosa</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">scipy.signal</span> <span class="k">as</span> <span class="nn">sp</span>
 <span class="kn">import</span> <span class="nn">scipy.stats</span> <span class="k">as</span> <span class="nn">st</span>
 <span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
-<span class="kn">from</span> <span class="nn">das4whales.plot</span> <span class="kn">import</span> <span class="n">import_roseus</span> 
-<span class="kn">import</span> <span class="nn">concurrent.futures</span>
+
+<span class="kn">from</span> <span class="nn">das4whales.plot</span> <span class="kn">import</span> <span class="n">import_roseus</span>
 
 <span class="c1">## Matched filter detection functions:</span>
 <div class="viewcode-block" id="gen_linear_chirp">
 <a class="viewcode-back" href="../../src/detect.html#das4whales.detect.gen_linear_chirp">[docs]</a>
-<span class="k">def</span> <span class="nf">gen_linear_chirp</span><span class="p">(</span><span class="n">fmin</span><span class="p">,</span> <span class="n">fmax</span><span class="p">,</span> <span class="n">duration</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">gen_linear_chirp</span><span class="p">(</span><span class="n">fmin</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">fmax</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">duration</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate a linear chirp signal.</span>
 
 <span class="sd">    Parameters</span>
@@ -324,7 +329,7 @@
 
 <div class="viewcode-block" id="gen_hyperbolic_chirp">
 <a class="viewcode-back" href="../../src/detect.html#das4whales.detect.gen_hyperbolic_chirp">[docs]</a>
-<span class="k">def</span> <span class="nf">gen_hyperbolic_chirp</span><span class="p">(</span><span class="n">fmin</span><span class="p">,</span> <span class="n">fmax</span><span class="p">,</span> <span class="n">duration</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">gen_hyperbolic_chirp</span><span class="p">(</span><span class="n">fmin</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">fmax</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">duration</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate a hyperbolic chirp signal.</span>
 
 <span class="sd">    Parameters</span>
@@ -351,7 +356,7 @@
 
 <div class="viewcode-block" id="gen_template_fincall">
 <a class="viewcode-back" href="../../src/detect.html#das4whales.detect.gen_template_fincall">[docs]</a>
-<span class="k">def</span> <span class="nf">gen_template_fincall</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">fmin</span> <span class="o">=</span> <span class="mf">15.</span><span class="p">,</span> <span class="n">fmax</span> <span class="o">=</span> <span class="mf">25.</span><span class="p">,</span> <span class="n">duration</span> <span class="o">=</span> <span class="mf">1.</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">gen_template_fincall</span><span class="p">(</span><span class="n">time</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">fs</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">fmin</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">15.</span><span class="p">,</span> <span class="n">fmax</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">25.</span><span class="p">,</span> <span class="n">duration</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.</span><span class="p">,</span> <span class="n">window</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot; generate template of a fin whale call</span>
 
 <span class="sd">    Parameters</span>
@@ -382,7 +387,7 @@
 
 <div class="viewcode-block" id="shift_xcorr">
 <a class="viewcode-back" href="../../src/detect.html#das4whales.detect.shift_xcorr">[docs]</a>
-<span class="k">def</span> <span class="nf">shift_xcorr</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">shift_xcorr</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;compute the shifted (positive lags only) cross correlation between two 1D arrays</span>
 
 <span class="sd">    Parameters</span>
@@ -405,7 +410,7 @@
 
 <div class="viewcode-block" id="shift_nxcorr">
 <a class="viewcode-back" href="../../src/detect.html#das4whales.detect.shift_nxcorr">[docs]</a>
-<span class="k">def</span> <span class="nf">shift_nxcorr</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">shift_nxcorr</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the shifted (positive lags only) normalized cross-correlation with standard deviation normalization.</span>
 
 <span class="sd">    Parameters</span>
@@ -433,7 +438,7 @@
 
 <div class="viewcode-block" id="compute_cross_correlogram">
 <a class="viewcode-back" href="../../src/detect.html#das4whales.detect.compute_cross_correlogram">[docs]</a>
-<span class="k">def</span> <span class="nf">compute_cross_correlogram</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">template</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">compute_cross_correlogram</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">template</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Compute the cross correlogram between the given data and template.</span>
 
@@ -465,7 +470,7 @@
 
 <div class="viewcode-block" id="calc_nmf">
 <a class="viewcode-back" href="../../src/detect.html#das4whales.detect.calc_nmf">[docs]</a>
-<span class="k">def</span> <span class="nf">calc_nmf</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">template</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">calc_nmf</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">template</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Calculate the normalized matched filter between the input data and the template.</span>
 
@@ -488,7 +493,7 @@
 
 <div class="viewcode-block" id="calc_nmf_correlogram">
 <a class="viewcode-back" href="../../src/detect.html#das4whales.detect.calc_nmf_correlogram">[docs]</a>
-<span class="k">def</span> <span class="nf">calc_nmf_correlogram</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">template</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">calc_nmf_correlogram</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">template</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Calculate the normalized matched filter correlogram between the input data and the template.</span>
 
@@ -527,7 +532,7 @@
 
 <div class="viewcode-block" id="pick_times_env">
 <a class="viewcode-back" href="../../src/detect.html#das4whales.detect.pick_times_env">[docs]</a>
-<span class="k">def</span> <span class="nf">pick_times_env</span><span class="p">(</span><span class="n">corr_m</span><span class="p">,</span> <span class="n">threshold</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">pick_times_env</span><span class="p">(</span><span class="n">corr_m</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Detects the peak times in a correlation matrix. Parallelized version : pick_times_par</span>
 
 <span class="sd">    This function takes a correlation matrix, computes the Hilbert transform of each correlation,</span>
@@ -560,7 +565,7 @@
 
 <div class="viewcode-block" id="process_corr">
 <a class="viewcode-back" href="../../src/detect.html#das4whales.detect.process_corr">[docs]</a>
-<span class="k">def</span> <span class="nf">process_corr</span><span class="p">(</span><span class="n">corr</span><span class="p">,</span> <span class="n">threshold</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">process_corr</span><span class="p">(</span><span class="n">corr</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Detects the peak times in a correlation serie, kernel for parallelization.</span>
 
 <span class="sd">    This function takes a correlation serie, computes the Hilbert transform of the correlation, and detects the peak times based on a given threshold.</span>
@@ -586,7 +591,7 @@
 
 <div class="viewcode-block" id="pick_times_par">
 <a class="viewcode-back" href="../../src/detect.html#das4whales.detect.pick_times_par">[docs]</a>
-<span class="k">def</span> <span class="nf">pick_times_par</span><span class="p">(</span><span class="n">corr_m</span><span class="p">,</span> <span class="n">threshold</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">pick_times_par</span><span class="p">(</span><span class="n">corr_m</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Detects the peak times in a correlation matrix using parallel processing.</span>
 
 <span class="sd">    This function takes a correlation matrix, computes the Hilbert transform of each correlation,</span>
@@ -617,7 +622,7 @@
 
 <div class="viewcode-block" id="pick_times">
 <a class="viewcode-back" href="../../src/detect.html#das4whales.detect.pick_times">[docs]</a>
-<span class="k">def</span> <span class="nf">pick_times</span><span class="p">(</span><span class="n">corr_m</span><span class="p">,</span> <span class="n">threshold</span><span class="p">,</span> <span class="n">ipi_idx</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">pick_times</span><span class="p">(</span><span class="n">corr_m</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">ipi_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Detects the peak times in a correlation matrix.</span>
 
 <span class="sd">    This function takes a correlation matrix, computes the Hilbert transform of each correlation,</span>
@@ -650,7 +655,7 @@
 
 <div class="viewcode-block" id="convert_pick_times">
 <a class="viewcode-back" href="../../src/detect.html#das4whales.detect.convert_pick_times">[docs]</a>
-<span class="k">def</span> <span class="nf">convert_pick_times</span><span class="p">(</span><span class="n">peaks_indexes_m</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">convert_pick_times</span><span class="p">(</span><span class="n">peaks_indexes_m</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Convert pick times from a list of lists to a numpy array.</span>
 
@@ -676,6 +681,7 @@
             <span class="n">peaks_indexes_tp</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">el</span><span class="p">)</span>
 
     <span class="n">peaks_indexes_tp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">peaks_indexes_tp</span><span class="p">)</span>
+    <span class="c1"># TODO: test = np.column_stack((nlf_assoc_list[0][0], nlf_assoc_list[0][1]))</span>
 
     <span class="k">return</span> <span class="n">peaks_indexes_tp</span></div>
 
@@ -1108,6 +1114,83 @@
         <span class="n">cross_correlogram</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">xcorr2d</span><span class="p">(</span><span class="n">spectro</span><span class="p">,</span> <span class="n">kernel</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">cross_correlogram</span></div>
+
+
+
+<div class="viewcode-block" id="resolve_hf_lf_crosstalk">
+<a class="viewcode-back" href="../../src/detect.html#das4whales.detect.resolve_hf_lf_crosstalk">[docs]</a>
+<span class="k">def</span> <span class="nf">resolve_hf_lf_crosstalk</span><span class="p">(</span><span class="n">input_peaks</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">comp_peaks</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
+                    <span class="n">input_SNR</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">comp_SNR</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">dt_tol</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">dx_tol</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+    <span class="c1">#TODO: maybe parallelize this function to speed up the process</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot; Sort peaks that are at the same distance and time but keep the one with higher SNR</span>
+<span class="sd">    to differentiate between HF and LF peaks.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    input_peaks : np.ndarray</span>
+<span class="sd">        Array of shape (2, n_peaks) containing [distance_indices, time_indices] of the input peaks.</span>
+<span class="sd">    comp_peaks : np.ndarray</span>
+<span class="sd">        Array of shape (2, n_peaks) containing [distance_indices, time_indices] of the comparison peaks.</span>
+<span class="sd">    input_SNR : np.ndarray</span>
+<span class="sd">        Array of shape (n_peaks_input) containing the SNR values for the input peaks</span>
+<span class="sd">    comp_SNR : np.ndarray</span>
+<span class="sd">        Array of shape (n_peaks_comp) containing the SNR values for the comparison peaks</span>
+<span class="sd">    dt_tol : int</span>
+<span class="sd">        Tolerance in time index to consider peaks as matching.</span>
+<span class="sd">    dx_tol : int</span>
+<span class="sd">        Tolerance in distance index to consider peaks as matching.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Make copies to avoid modifying input arrays</span>
+    <span class="n">input_peaks</span> <span class="o">=</span> <span class="n">input_peaks</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">comp_peaks</span> <span class="o">=</span> <span class="n">comp_peaks</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">input_SNR</span> <span class="o">=</span> <span class="n">input_SNR</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">comp_SNR</span> <span class="o">=</span> <span class="n">comp_SNR</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    
+    <span class="c1"># Track which peaks to keep (start with all True)</span>
+    <span class="n">input_keep</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">input_peaks</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="n">comp_keep</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">comp_peaks</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    
+    <span class="n">ix</span> <span class="o">=</span> <span class="n">comp_peaks</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]</span>
+    <span class="n">it</span> <span class="o">=</span> <span class="n">comp_peaks</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span>
+    
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">ix</span><span class="p">,</span> <span class="n">it</span><span class="p">)),</span> <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">ix</span><span class="p">),</span> <span class="n">desc</span><span class="o">=</span><span class="s2">&quot;Post-filtering hf/lf detections&quot;</span><span class="p">):</span>
+        <span class="c1"># Skip if this comparison peak is already marked for removal</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">comp_keep</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
+            <span class="k">continue</span>
+            
+        <span class="c1"># Find matching input peaks within tolerance</span>
+        <span class="n">dist_match</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">input_peaks</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">d</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">dx_tol</span>
+        <span class="n">time_match</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">input_peaks</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">dt_tol</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">dist_match</span> <span class="o">&amp;</span> <span class="n">time_match</span>
+        
+        <span class="c1"># Only consider peaks that are still marked to keep</span>
+        <span class="n">valid_mask</span> <span class="o">=</span> <span class="n">mask</span> <span class="o">&amp;</span> <span class="n">input_keep</span>
+        
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">valid_mask</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># print(f&quot;Found {np.sum(valid_mask)} matching input peaks for comparison peak {i} at distance {d} and time {t}.&quot;)</span>
+            
+            <span class="c1"># Get indices of valid matching input peaks</span>
+            <span class="n">input_match_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">valid_mask</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            
+            <span class="c1"># Compare with the first valid matching input peak</span>
+            <span class="n">input_idx</span> <span class="o">=</span> <span class="n">input_match_indices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            
+            <span class="k">if</span> <span class="n">input_SNR</span><span class="p">[</span><span class="n">input_idx</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">comp_SNR</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
+                <span class="c1"># Mark comparison peak for removal</span>
+                <span class="n">comp_keep</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="c1"># print(f&quot;Removing comparison peak {i} (SNR: {comp_SNR[i]:.2f}) in favor of input peak {input_idx} (SNR: {input_SNR[input_idx]:.2f})&quot;)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Mark all matching input peaks for removal</span>
+                <span class="n">input_keep</span><span class="p">[</span><span class="n">input_match_indices</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="c1"># print(f&quot;Removing {len(input_match_indices)} input peaks in favor of comparison peak {i} (SNR: {comp_SNR[i]:.2f})&quot;)</span>
+    
+    <span class="c1"># Filter arrays to keep only selected peaks</span>
+    <span class="n">input_peaks_out</span> <span class="o">=</span> <span class="n">input_peaks</span><span class="p">[:,</span> <span class="n">input_keep</span><span class="p">]</span>
+    <span class="n">input_SNR_out</span> <span class="o">=</span> <span class="n">input_SNR</span><span class="p">[</span><span class="n">input_keep</span><span class="p">]</span>
+    <span class="n">comp_peaks_out</span> <span class="o">=</span> <span class="n">comp_peaks</span><span class="p">[:,</span> <span class="n">comp_keep</span><span class="p">]</span>
+    <span class="n">comp_SNR_out</span> <span class="o">=</span> <span class="n">comp_SNR</span><span class="p">[</span><span class="n">comp_keep</span><span class="p">]</span>
+    
+    <span class="k">return</span> <span class="n">input_peaks_out</span><span class="p">,</span> <span class="n">input_SNR_out</span><span class="p">,</span> <span class="n">comp_peaks_out</span><span class="p">,</span> <span class="n">comp_SNR_out</span></div>
 
 </pre></div>
         </article>

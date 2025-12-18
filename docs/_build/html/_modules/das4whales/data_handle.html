@@ -390,7 +390,7 @@
 <span class="sd">        ns: the number of time samples\n</span>
 <span class="sd">        n: refractive index of the fiber\n</span>
 <span class="sd">        GL: the gauge length (m)\n</span>
-<span class="sd">        scale_factor: the value to convert DAS data from strain rate to strain</span>
+<span class="sd">        scale_factor: the value to convert DAS data from unwrapped optical phase (rad) to strain </span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># Make sure the file exists</span>
@@ -435,8 +435,7 @@
 <span class="sd">        ns: the number of time samples\n</span>
 <span class="sd">        n: refractive index of the fiber\n</span>
 <span class="sd">        GL: the gauge length (m)\n</span>
-<span class="sd">        scale_factor: the value to convert DAS data from strain rate to strain</span>
-
+<span class="sd">        scale_factor: the value to convert DAS data from unwrapped optical phase (rad) to strain</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="c1"># Make sure the file exists</span>
@@ -481,7 +480,7 @@
 <span class="sd">        nx: the number of spatial samples also called channels\n</span>
 <span class="sd">        ns: the number of time samples\n</span>
 <span class="sd">        GL: the gauge length (m)\n</span>
-<span class="sd">        scale_factor: the value to convert DAS data from strain rate to strain</span>
+<span class="sd">        scale_factor: the value to convert DAS data to strain (strain rate?)</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -520,7 +519,7 @@
 <span class="sd">        ns: the number of time samples\n</span>
 <span class="sd">        n: refractive index of the fiber\n</span>
 <span class="sd">        GL: the gauge length (m)\n</span>
-<span class="sd">        scale_factor: the value to convert DAS data from strain rate to strain</span>
+<span class="sd">        scale_factor: the value to convert DAS data from unwrapped optical phase (rad) to strain</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -548,7 +547,7 @@
 <a class="viewcode-back" href="../../src/data_handle.html#das4whales.data_handle.raw2strain">[docs]</a>
 <span class="k">def</span> <span class="nf">raw2strain</span><span class="p">(</span><span class="n">trace</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">metadata</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Transform the amplitude of raw das data from strain-rate to strain according to scale factor</span>
+<span class="sd">    Transform the amplitude of raw das data from unwrapped optical phase (rad) to strain according to scale factor</span>
 
 
 <span class="sd">    Parameters</span>

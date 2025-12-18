@@ -487,7 +487,7 @@ interrogator is found.</p>
 <p>nx: the number of spatial samples also called channels</p>
 <p>ns: the number of time samples</p>
 <p>GL: the gauge length (m)</p>
-<p>scale_factor: the value to convert DAS data from strain rate to strain</p>
+<p>scale_factor: the value to convert DAS data to strain (strain rate?)</p>
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
@@ -512,7 +512,7 @@ interrogator is found.</p>
 <p>ns: the number of time samples</p>
 <p>n: refractive index of the fiber</p>
 <p>GL: the gauge length (m)</p>
-<p>scale_factor: the value to convert DAS data from strain rate to strain</p>
+<p>scale_factor: the value to convert DAS data from unwrapped optical phase (rad) to strain</p>
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
@@ -537,7 +537,7 @@ interrogator is found.</p>
 <p>ns: the number of time samples</p>
 <p>n: refractive index of the fiber</p>
 <p>GL: the gauge length (m)</p>
-<p>scale_factor: the value to convert DAS data from strain rate to strain</p>
+<p>scale_factor: the value to convert DAS data from unwrapped optical phase (rad) to strain</p>
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
@@ -562,7 +562,7 @@ interrogator is found.</p>
 <p>ns: the number of time samples</p>
 <p>n: refractive index of the fiber</p>
 <p>GL: the gauge length (m)</p>
-<p>scale_factor: the value to convert DAS data from strain rate to strain</p>
+<p>scale_factor: the value to convert DAS data from unwrapped optical phase (rad) to strain</p>
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
@@ -706,7 +706,7 @@ annotation application (<a class="reference external" href="https://github.com/l
 <dl class="py function">
 <dt class="sig sig-object py" id="das4whales.data_handle.raw2strain">
 <span class="sig-prename descclassname"><span class="pre">das4whales.data_handle.</span></span><span class="sig-name descname"><span class="pre">raw2strain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">trace</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/das4whales/data_handle.html#raw2strain"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#das4whales.data_handle.raw2strain" title="Link to this definition">¶</a></dt>
-<dd><p>Transform the amplitude of raw das data from strain-rate to strain according to scale factor</p>
+<dd><p>Transform the amplitude of raw das data from unwrapped optical phase (rad) to strain according to scale factor</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">

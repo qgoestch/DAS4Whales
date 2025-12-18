@@ -104,7 +104,7 @@ def get_metadata_optasense(filepath: str) -> Dict[str, Any]:
         ns: the number of time samples\n
         n: refractive index of the fiber\n
         GL: the gauge length (m)\n
-        scale_factor: the value to convert DAS data from strain rate to strain
+        scale_factor: the value to convert DAS data from unwrapped optical phase (rad) to strain 
 
     """
     # Make sure the file exists
@@ -146,8 +146,7 @@ def get_metadata_silixa(filepath: str) -> Dict[str, Any]:
         ns: the number of time samples\n
         n: refractive index of the fiber\n
         GL: the gauge length (m)\n
-        scale_factor: the value to convert DAS data from strain rate to strain
-
+        scale_factor: the value to convert DAS data from unwrapped optical phase (rad) to strain
     """
 
     # Make sure the file exists
@@ -189,7 +188,7 @@ def get_metadata_asn(filepath: str) -> Dict[str, Any]:
         nx: the number of spatial samples also called channels\n
         ns: the number of time samples\n
         GL: the gauge length (m)\n
-        scale_factor: the value to convert DAS data from strain rate to strain
+        scale_factor: the value to convert DAS data to strain (strain rate?)
 
     """
 
@@ -225,7 +224,7 @@ def get_metadata_onyx(filepath: str) -> Dict[str, Any]:
         ns: the number of time samples\n
         n: refractive index of the fiber\n
         GL: the gauge length (m)\n
-        scale_factor: the value to convert DAS data from strain rate to strain
+        scale_factor: the value to convert DAS data from unwrapped optical phase (rad) to strain
 
     """
 
@@ -250,7 +249,7 @@ def get_metadata_onyx(filepath: str) -> Dict[str, Any]:
 # Load/download das data as strain
 def raw2strain(trace: np.ndarray, metadata: Dict[str, Any]) -> np.ndarray:
     """
-    Transform the amplitude of raw das data from strain-rate to strain according to scale factor
+    Transform the amplitude of raw das data from unwrapped optical phase (rad) to strain according to scale factor
 
 
     Parameters

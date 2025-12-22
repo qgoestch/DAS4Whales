@@ -201,7 +201,7 @@ def generate_track_animation(df: pd.DataFrame, out_dir: str, bathy: np.ndarray, 
         mask = (df_all['utc'] >= window_start) & (df_all['utc'] < window_end)
         df_window = df_all[mask].copy()
         if df_window.empty:
-            ax.set_title(f"No calls between {window_start.strftime('%Y-%m-%d %H:%M')} and {window_end.strftime('%Y-%m-%d %H:%M UTC')}")
+            # ax.set_title(f"No calls between {window_start.strftime('%Y-%m-%d %H:%M')} and {window_end.strftime('%Y-%m-%d %H:%M UTC')}")
             return []
         
         logger.info(f"\nFrame {frame} ({window_start.strftime('%Y-%m-%d %H:%M')} to {window_end.strftime('%Y-%m-%d %H:%M')})")
@@ -251,7 +251,7 @@ def generate_track_animation(df: pd.DataFrame, out_dir: str, bathy: np.ndarray, 
             logger.info(f"  After time spacing filter: {len(df_window)}")
 
         if df_window.empty:
-            ax.set_title(f"No calls after filtering {window_start.strftime('%Y-%m-%d %H:%M')} to {window_end.strftime('%Y-%m-%d %H:%M UTC')}")
+            ax.set_title(f"Tracks {window_start.strftime('%Y-%m-%d %H:%M')} to {window_end.strftime('%Y-%m-%d %H:%M UTC')}")
             return []
 
         times_in_window = (df_window['utc'] - window_start).dt.total_seconds() / 60.0

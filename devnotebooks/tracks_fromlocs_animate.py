@@ -142,15 +142,20 @@ def generate_track_animation(df: pd.DataFrame, out_dir: str, bathy: np.ndarray, 
         else:
             rgb = None
 
-    fig, ax = plt.subplots(figsize=(12,8), constrained_layout=True)
+    fig, ax = plt.subplots(figsize=(12,8), layout='constrained')
+
     # Plot bathymetry as background
     if bathy is not None and 'rgb' in locals() and rgb is not None:
         ax.imshow(rgb, extent=[e/1000.0 for e in extent], aspect='equal')
 
     # Plot cables locations
-    ax.plot(df_north.x_km, df_north.y_km, c='red', label='North cable')
-    ax.plot(df_south.x_km, df_south.y_km, c='orange', label='South cable')
-    ax.legend(loc='upper right', fontsize='small')
+    north_cplot, = ax.plot(df_north.x_km, df_north.y_km, c='red', label='North cable')
+    south_cplot, = ax.plot(df_south.x_km, df_south.y_km, c='orange', label='South cable')
+
+    # Add legend and empty markers for HF and LF
+    hf_marker = plt.scatter([], [], c='grey', marker='o', edgecolor='k', s=50, label='HF calls')
+    lf_marker = plt.scatter([], [], c='grey', marker='d', edgecolor='k', s=50, label='LF calls')
+    ax.legend(handles=[north_cplot, south_cplot, hf_marker, lf_marker], loc='upper right', fontsize='small')
 
     # Plot some bathymetry contours
     levels = [-1500, -1000, -600, -250, -80]
@@ -267,6 +272,7 @@ def generate_track_animation(df: pd.DataFrame, out_dir: str, bathy: np.ndarray, 
                                cmap='plasma',
                                norm=norm,
                                s=50,
+                               marker='o',
                                edgecolor='k',
                                alpha=0.7)
             artists.append(sc_hf)
@@ -276,6 +282,7 @@ def generate_track_animation(df: pd.DataFrame, out_dir: str, bathy: np.ndarray, 
                                cmap='viridis',
                                norm=norm,
                                s=50,
+                               marker='d',
                                edgecolor='k',
                                alpha=0.7)
             artists.append(sc_lf)
@@ -290,19 +297,18 @@ def generate_track_animation(df: pd.DataFrame, out_dir: str, bathy: np.ndarray, 
     )
 
     out_path = Path(out_dir) / f"4d_tracks.mp4"
-    writer = FFMpegWriter(fps=2, bitrate=1800)
-    anim.save(out_path, writer=writer, dpi=300, savefig_kwargs={'transparent': True})
+    writer = FFMpegWriter(fps=4, bitrate=1800)
+    anim.save(out_path, writer=writer, dpi=300, savefig_kwargs={'transparent': True, 'bbox_inches': 'tight', 'pad_inches': 0})
     plt.close(fig)
-
 
 
 # +
 # Animation without filtering (unfiltered)
-# generate_track_animation(df_all, out_dir, bathy=bathy, xlon=xlon, ylat=ylat, interval=100,
-#                          window_minutes=60, overlap_minutes=30)
+# generate_track_animation(df_all, out_dir, bathy=bathy, xlon=xlon, ylat=ylat, interval=250,
+#                          window_minutes=60, overlap_minutes=40)
 # -
 
 # Animation with spatio-temporal filtering (optional)
-generate_track_animation(df_all, out_dir, bathy=bathy, xlon=xlon, ylat=ylat, interval=300,
-                         window_minutes=60, overlap_minutes=20,
+generate_track_animation(df_all, out_dir, bathy=bathy, xlon=xlon, ylat=ylat, interval=250,
+                         window_minutes=60, overlap_minutes=40,
                          deltax_threshold=80, spatial_proximity_m=250, time_proximity_s=70, min_time_spacing_s=5)

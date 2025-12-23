@@ -153,8 +153,8 @@ def generate_track_animation(df: pd.DataFrame, out_dir: str, bathy: np.ndarray, 
     south_cplot, = ax.plot(df_south.x_km, df_south.y_km, c='orange', label='South cable')
 
     # Add legend and empty markers for HF and LF
-    hf_marker = plt.scatter([], [], c='grey', marker='o', edgecolor='k', s=50, label='HF calls')
-    lf_marker = plt.scatter([], [], c='grey', marker='d', edgecolor='k', s=50, label='LF calls')
+    hf_marker = plt.scatter([], [], c='gold', marker='o', edgecolor='k', s=50, label='HF calls')
+    lf_marker = plt.scatter([], [], c='magenta', marker='d', edgecolor='k', s=50, label='LF calls')
     ax.legend(handles=[north_cplot, south_cplot, hf_marker, lf_marker], loc='upper right', fontsize='small')
 
     # Plot some bathymetry contours
@@ -168,13 +168,13 @@ def generate_track_animation(df: pd.DataFrame, out_dir: str, bathy: np.ndarray, 
         except Exception:
             pass
 
-    norm = mcolors.Normalize(vmin=0, vmax=window_minutes)
-    cbar_hf = fig.colorbar(plt.cm.ScalarMappable(norm=norm, cmap='plasma'),
-                        ax=ax, pad=0.015, aspect=30, fraction=0.017)
-    cbar_hf.set_label('HF time into window [minutes]')
-    cbar_lf = fig.colorbar(plt.cm.ScalarMappable(norm=norm, cmap='viridis'),
-                        ax=ax, pad=0.06, aspect=30, fraction=0.017)
-    cbar_lf.set_label('LF time into window [minutes]')
+    # norm = mcolors.Normalize(vmin=0, vmax=window_minutes)
+    # cbar_hf = fig.colorbar(plt.cm.ScalarMappable(norm=norm, cmap='plasma'),
+    #                     ax=ax, pad=0.015, aspect=30, fraction=0.017)
+    # cbar_hf.set_label('HF time into window [minutes]')
+    # cbar_lf = fig.colorbar(plt.cm.ScalarMappable(norm=norm, cmap='viridis'),
+    #                     ax=ax, pad=0.06, aspect=30, fraction=0.017)
+    # cbar_lf.set_label('LF time into window [minutes]')
 
     # Init function
     def init():
@@ -266,26 +266,27 @@ def generate_track_animation(df: pd.DataFrame, out_dir: str, bathy: np.ndarray, 
         df_lf = df_window[df_window['call_type'].str.contains('lf', case=False, na=False)]
 
         artists = []
-        if not df_hf.empty:
-            sc_hf = ax.scatter(df_hf['x_km'], df_hf['y_km'],
-                               c=df_hf['minutes_into_window'],
-                               cmap='plasma',
-                               norm=norm,
-                               s=50,
-                               marker='o',
-                               edgecolor='k',
-                               alpha=0.7)
-            artists.append(sc_hf)
         if not df_lf.empty:
             sc_lf = ax.scatter(df_lf['x_km'], df_lf['y_km'],
-                               c=df_lf['minutes_into_window'],
-                               cmap='viridis',
-                               norm=norm,
+                               c='magenta',   #df_lf['minutes_into_window'],
+                                              #cmap='viridis',
+                            #    norm=norm,
                                s=50,
                                marker='d',
                                edgecolor='k',
-                               alpha=0.7)
+                               alpha=df_lf['minutes_into_window']/window_minutes)   
             artists.append(sc_lf)
+
+        if not df_hf.empty:
+            sc_hf = ax.scatter(df_hf['x_km'], df_hf['y_km'],
+                               c='gold',    #df_hf['minutes_into_window'],
+                                            #cmap='plasma',
+                            #    norm=norm,
+                               s=50,
+                               marker='o',
+                               edgecolor='k',
+                               alpha=df_hf['minutes_into_window']/window_minutes)   
+            artists.append(sc_hf)
 
         if artists:
             ax.set_title(f"Tracks {window_start.strftime('%Y-%m-%d %H:%M')} to {window_end.strftime('%Y-%m-%d %H:%M UTC')}")
@@ -297,7 +298,7 @@ def generate_track_animation(df: pd.DataFrame, out_dir: str, bathy: np.ndarray, 
     )
 
     out_path = Path(out_dir) / f"4d_tracks.mp4"
-    writer = FFMpegWriter(fps=4, bitrate=1800)
+    writer = FFMpegWriter(fps=8, bitrate=1800)
     anim.save(out_path, writer=writer, dpi=300, savefig_kwargs={'transparent': True, 'bbox_inches': 'tight', 'pad_inches': 0})
     plt.close(fig)
 
@@ -310,5 +311,5 @@ def generate_track_animation(df: pd.DataFrame, out_dir: str, bathy: np.ndarray, 
 
 # Animation with spatio-temporal filtering (optional)
 generate_track_animation(df_all, out_dir, bathy=bathy, xlon=xlon, ylat=ylat, interval=250,
-                         window_minutes=60, overlap_minutes=40,
+                         window_minutes=60, overlap_minutes=58,
                          deltax_threshold=80, spatial_proximity_m=250, time_proximity_s=70, min_time_spacing_s=5)

@@ -2,16 +2,15 @@ from __future__ import annotations
 
 import os
 import sys
-import importlib.metadata
 
 # Add the current directory to the system path
-sys.path.insert(0, os.path.abspath('.'))
+sys.path.insert(0, os.path.abspath("."))
 
 # -- Project information -----------------------------------------------------
 
-project = 'DAS4Whales'
+project = "DAS4Whales"
 copyright = "2024, Bouffaut & Goestchel"
-author = 'Léa Bouffaut, Quentin Goestchel'
+author = "Léa Bouffaut, Quentin Goestchel"
 # version = release = importlib.metadata.version("package")
 
 # -- General configuration ---------------------------------------------------
@@ -33,7 +32,7 @@ extensions = [
     "numpydoc",
 ]
 
-templates_path = ['_templates']
+templates_path = ["_templates"]
 source_suffix = [".rst", ".md"]
 exclude_patterns = [
     "_build",
@@ -46,11 +45,11 @@ exclude_patterns = [
 
 # -- Options for HTML output -------------------------------------------------
 
-html_theme = 'furo' #'sphinx_rtd_theme'
+html_theme = "furo"  #'sphinx_rtd_theme'
 
 html_theme_options = {
     "light_logo": "DAS4Whales_logo.png",  # Path to your light theme logo
-    "dark_logo": "DAS4Whales_logo.png",    # Path to your dark theme logo
+    "dark_logo": "DAS4Whales_logo.png",  # Path to your dark theme logo
     "light_css_variables": {
         "color-brand-primary": "#005f73",  # Ocean Blue
         "color-brand-content": "#0a9396",  # Aqua/Turquoise
@@ -71,10 +70,10 @@ html_theme_options = {
         "color-link": "#ffb703",  # Coral
         "color-link--hover": "#fb8500",  # Darker Coral
     },
-    'github_url': 'https://github.com/DAS4Whales/DAS4Whales'
+    "github_url": "https://github.com/DAS4Whales/DAS4Whales",
 }
 
-html_static_path = ['_static']
+html_static_path = ["_static"]
 html_css_files = [
     "css/custom.css",
 ]
@@ -82,12 +81,12 @@ html_css_files = [
 myst_enable_extensions = [
     "colon_fence",
     "amsmath",
-    "deflist", # For lists of definitions
-    "dollarmath", # For inline math
+    "deflist",  # For lists of definitions
+    "dollarmath",  # For inline math
     "html_admonition",  # For custom admonitions (e.g., danger, note)
     "html_image",  # For aligning images
-    "smartquotes", # For automatic curly quotes
-    "substitution", # For |variable| substitutions
+    "smartquotes",  # For automatic curly quotes
+    "substitution",  # For |variable| substitutions
 ]
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),

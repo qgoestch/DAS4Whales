@@ -1,5 +1,7 @@
-import nox
 import argparse
+
+import nox
+
 
 @nox.session(reuse_venv=True)
 def docs(session: nox.Session) -> None:
@@ -30,6 +32,7 @@ def docs(session: nox.Session) -> None:
         session.run("sphinx-autobuild", "--open-browser", *shared_args)
     else:
         session.run("sphinx-build", "--keep-going", *shared_args)
+
 
 @nox.session
 def build_api_docs(session: nox.Session) -> None:

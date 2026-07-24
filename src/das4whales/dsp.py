@@ -9,8 +9,6 @@ Date: 2023-2024-2025
 
 from __future__ import annotations
 
-from typing import Dict, List, Tuple, Union, Optional, Any
-
 import cv2
 import deprecation
 import librosa
@@ -18,11 +16,14 @@ import numpy as np
 import scipy.fft as sfft
 import scipy.signal as sp
 import sparse
-from numpy.fft import fft2, fftfreq, fftshift, ifft2, ifftshift
-from scipy import ndimage  
+from numpy.fft import fftfreq, fftshift, ifft2, ifftshift
+from scipy import ndimage
+
 
 # Digital sampling
-def resample(tr: np.ndarray, fs: int, desired_fs: int) -> Tuple[np.ndarray, int, np.ndarray]:
+def resample(
+    tr: np.ndarray, fs: int, desired_fs: int
+) -> tuple[np.ndarray, int, np.ndarray]:
     """
     Resample a multi-channel signal to a desired sampling frequency.
 
@@ -48,12 +49,13 @@ def resample(tr: np.ndarray, fs: int, desired_fs: int) -> Tuple[np.ndarray, int,
     # 1) Filter the signal if downsampling is needed
     if desired_fs < fs:
         # Butterworth low-pass filter
-        sos = sp.butter(8, desired_fs / 2, 'low', fs=fs, output='sos')
+        sos = sp.butter(8, desired_fs / 2, "low", fs=fs, output="sos")
         tr = sp.sosfiltfilt(sos, tr, axis=-1)
 
     # 2) Resample
     tr_downsampled = librosa.resample(
-        tr, axis=1, orig_sr=fs, target_sr=desired_fs, res_type='soxr_vhq')  # axis specifies the time axis
+        tr, axis=1, orig_sr=fs, target_sr=desired_fs, res_type="soxr_vhq"
+    )  # axis specifies the time axis
     fs_downsampled = desired_fs
     n_channels, n_samples = tr_downsampled.shape
 
@@ -61,6 +63,7 @@ def resample(tr: np.ndarray, fs: int, desired_fs: int) -> Tuple[np.ndarray, int,
     tx_downsampled = np.arange(n_samples) / fs_downsampled
 
     return tr_downsampled, fs_downsampled, tx_downsampled
+
 
 # Transformations
 def get_fx(trace: np.ndarray, nfft: int) -> np.ndarray:
@@ -82,11 +85,13 @@ def get_fx(trace: np.ndarray, nfft: int) -> np.ndarray:
 
     fx = 2 * (abs(np.fft.fftshift(np.fft.fft(trace, nfft), axes=1)))
     fx /= nfft
-    fx *= 10 ** 9
+    fx *= 10**9
     return fx
 
 
-def get_spectrogram(waveform: np.ndarray, fs: float, nfft: int = 128, overlap_pct: float = 0.8) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def get_spectrogram(
+    waveform: np.ndarray, fs: float, nfft: int = 128, overlap_pct: float = 0.8
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Get the spectrogram of a single channel
 
@@ -111,15 +116,17 @@ def get_spectrogram(waveform: np.ndarray, fs: float, nfft: int = 128, overlap_pc
         Frequency vector.
 
     """
-    spectrogram = np.abs(librosa.stft(
-        y=waveform, n_fft=nfft,
-        hop_length=int(np.floor(nfft * (1 - overlap_pct)))))
+    spectrogram = np.abs(
+        librosa.stft(
+            y=waveform, n_fft=nfft, hop_length=int(np.floor(nfft * (1 - overlap_pct)))
+        )
+    )
 
     # Axis
     height = spectrogram.shape[0]
     width = spectrogram.shape[1]
 
-    tt = np.linspace(0, len(waveform)/fs, num=width)
+    tt = np.linspace(0, len(waveform) / fs, num=width)
     ff = np.linspace(0, fs / 2, num=height)
     p = 20 * np.log10(spectrogram / np.max(spectrogram))
 
@@ -164,9 +171,23 @@ def normalize_median(trace):
 
 # Filters
 # f-k filters design functions
-#TODO: uniformize and make a global function with choice of filter
-@deprecation.deprecated(deprecated_in="0.1.0", removed_in="0.2.0", details="Use hybrid_filter_design instead")
-def fk_filter_design_old(trace_shape, selected_channels, dx, fs, cs_min=1400, cp_min=1450, cp_max=3400, cs_max=3500, display_filter=False):
+# TODO: uniformize and make a global function with choice of filter
+@deprecation.deprecated(
+    deprecated_in="0.1.0",
+    removed_in="0.2.0",
+    details="Use hybrid_filter_design instead",
+)
+def fk_filter_design_old(
+    trace_shape,
+    selected_channels,
+    dx,
+    fs,
+    cs_min=1400,
+    cp_min=1450,
+    cp_max=3400,
+    cs_max=3500,
+    display_filter=False,
+):
     # TODO: mark as deprecated, use hybrid_filter_design instead
     """
     Designs a f-k filter for DAS strain data
@@ -214,45 +235,47 @@ def fk_filter_design_old(trace_shape, selected_channels, dx, fs, cs_min=1400, cp
     knum = np.fft.fftshift(np.fft.fftfreq(nnx, d=selected_channels[2] * dx))
 
     # Supress/hide the warning
-    np.seterr(invalid='ignore')
+    np.seterr(invalid="ignore")
 
     # Create the filter
     # Wave speed is the ratio between the frequency and the wavenumber
-    fk_filter_matrix = np.ndarray(shape=(len(knum), len(freq)), dtype=float, order='F')
+    fk_filter_matrix = np.ndarray(shape=(len(knum), len(freq)), dtype=float, order="F")
 
     # Going through wavenumbers
     for i in range(len(knum)):
         # Taking care of very small wavenumber to avoid 0 division
         if abs(knum[i]) < 0.005:
-            fk_filter_matrix[i, :] = np.zeros(shape=[len(freq)], dtype=float, order='F')
+            fk_filter_matrix[i, :] = np.zeros(shape=[len(freq)], dtype=float, order="F")
         else:
-            filter_line = np.ones(shape=[len(freq)], dtype=float, order='F')
+            filter_line = np.ones(shape=[len(freq)], dtype=float, order="F")
             speed = abs(freq / knum[i])
 
             # Filter transition band, ramping up from cs_min to cp_min
-            selected_speed_mask = ((speed >= cs_min) & (speed <= cp_min))
-            filter_line[selected_speed_mask] = np.sin(0.5 * np.pi *
-                                                      (speed[selected_speed_mask] - cs_min) / (cp_min - cs_min))
+            selected_speed_mask = (speed >= cs_min) & (speed <= cp_min)
+            filter_line[selected_speed_mask] = np.sin(
+                0.5 * np.pi * (speed[selected_speed_mask] - cs_min) / (cp_min - cs_min)
+            )
             # Filter transition band, going down from cp_max to cs_max
-            selected_speed_mask = ((speed >= cp_max) & (speed <= cs_max))
-            filter_line[selected_speed_mask] = 1 - np.sin(0.5 * np.pi *
-                                                          (speed[selected_speed_mask] - cp_max) / (cs_max - cp_max))
+            selected_speed_mask = (speed >= cp_max) & (speed <= cs_max)
+            filter_line[selected_speed_mask] = 1 - np.sin(
+                0.5 * np.pi * (speed[selected_speed_mask] - cp_max) / (cs_max - cp_max)
+            )
             # Stopband
             filter_line[speed >= cs_max] = 0
             filter_line[speed < cs_min] = 0
 
             # Fill the filter matrix
             fk_filter_matrix[i, :] = filter_line
-    
-    if display_filter: 
+
+    if display_filter:
         import matplotlib.pyplot as plt
-        import matplotlib.gridspec as gridspec
+        from matplotlib import gridspec
 
         # Context manager for the plot (to avoid changing the global settings)
         with plt.rc_context():
             # Change the font sizes for plots (if needed)
-            # plt.rc('font', size=20) 
-            # plt.rc('xtick', labelsize=16)  
+            # plt.rc('font', size=20)
+            # plt.rc('xtick', labelsize=16)
             # plt.rc('ytick', labelsize=16)
 
             fig = plt.figure(figsize=(18, 10))
@@ -260,27 +283,53 @@ def fk_filter_design_old(trace_shape, selected_channels, dx, fs, cs_min=1400, cp
 
             # Matrix display
             ax1 = plt.subplot(gs[0])
-            ax1.imshow(fk_filter_matrix, extent=[min(freq), max(freq), min(knum), max(knum)], aspect='auto', origin='lower')
-            ax1.hlines(knum[len(knum)//2 + 420], min(freq), max(freq), color='tab:orange', lw=2, ls=':')
-            ax1.vlines(freq[len(freq)//2 + 1500], min(knum), max(knum), color='tab:blue', lw=2, ls=':')
+            ax1.imshow(
+                fk_filter_matrix,
+                extent=[min(freq), max(freq), min(knum), max(knum)],
+                aspect="auto",
+                origin="lower",
+            )
+            ax1.hlines(
+                knum[len(knum) // 2 + 420],
+                min(freq),
+                max(freq),
+                color="tab:orange",
+                lw=2,
+                ls=":",
+            )
+            ax1.vlines(
+                freq[len(freq) // 2 + 1500],
+                min(knum),
+                max(knum),
+                color="tab:blue",
+                lw=2,
+                ls=":",
+            )
             # colorbar
             # cbar = plt.colorbar(ax1.imshow(fk_filter_matrix, extent=[min(freq), max(freq), min(knum), max(knum)], aspect='auto', origin='lower'))
-            ax1.set_ylabel('k [m$^{-1}$]')
-            ax1.set_xlabel('f [Hz]')
-            
+            ax1.set_ylabel("k [m$^{-1}$]")
+            ax1.set_xlabel("f [Hz]")
+
             # Frequency slice display
             ax2 = plt.subplot(gs[2], sharex=ax1)
-            ax2.plot(freq, fk_filter_matrix[len(knum)//2 + 420, :], lw=3, color='tab:orange')
-            ax2.set_xlabel('f [Hz]')
-            ax2.set_ylabel('Gain []')
+            ax2.plot(
+                freq,
+                fk_filter_matrix[len(knum) // 2 + 420, :],
+                lw=3,
+                color="tab:orange",
+            )
+            ax2.set_xlabel("f [Hz]")
+            ax2.set_ylabel("Gain []")
             ax2.set_xlim([min(freq), max(freq)])
             ax2.grid()
 
             # Wavenumber slice display
             ax3 = plt.subplot(gs[1], sharey=ax1)
-            ax3.plot(fk_filter_matrix[:, len(freq)//2 + 1500], knum, lw=3, color='tab:blue')
-            ax3.set_xlabel('Gain []')
-            ax3.set_ylabel('k [m$^{-1}$]')
+            ax3.plot(
+                fk_filter_matrix[:, len(freq) // 2 + 1500], knum, lw=3, color="tab:blue"
+            )
+            ax3.set_xlabel("Gain []")
+            ax3.set_ylabel("k [m$^{-1}$]")
             ax3.yaxis.set_label_position("right")
             ax3.set_ylim([min(knum), max(knum)])
             ax3.invert_xaxis()
@@ -292,7 +341,17 @@ def fk_filter_design_old(trace_shape, selected_channels, dx, fs, cs_min=1400, cp
     return fk_filter_matrix
 
 
-def fk_filter_design(trace_shape, selected_channels, dx, fs, cs_min=1400, cp_min=1450, cp_max=3400, cs_max=3500, display_filter=False):
+def fk_filter_design(
+    trace_shape,
+    selected_channels,
+    dx,
+    fs,
+    cs_min=1400,
+    cp_min=1450,
+    cp_max=3400,
+    cs_max=3500,
+    display_filter=False,
+):
     """
     Designs a f-k filter for DAS strain data
     Keeps by default data with propagation speed [1450-3400] m/s
@@ -340,7 +399,7 @@ def fk_filter_design(trace_shape, selected_channels, dx, fs, cs_min=1400, cp_min
 
     # Create the filter
     # Wave speed is the ratio between the frequency and the wavenumber
-    fk_filter_matrix = np.ndarray(shape=(len(knum), len(freq)), dtype=float, order='F')
+    fk_filter_matrix = np.ndarray(shape=(len(knum), len(freq)), dtype=float, order="F")
 
     # Going through wavenumbers
     for i in range(len(knum)):
@@ -351,18 +410,20 @@ def fk_filter_design(trace_shape, selected_channels, dx, fs, cs_min=1400, cp_min
         fp_max = knum[i] * cp_max
         fs_max = knum[i] * cs_max
 
-        filter_line = np.ones(shape=[len(freq)], dtype=float, order='F')
+        filter_line = np.ones(shape=[len(freq)], dtype=float, order="F")
 
         if fs_min != fp_min:
             # Filter transition band, ramping up from cs_min to cp_min
-            selected_speed_mask = ((freq >= fs_min) & (freq <= fp_min))
-            filter_line[selected_speed_mask] = np.sin(0.5 * np.pi *
-                                                        (freq[selected_speed_mask] - fs_min) / (fp_min - fs_min))
+            selected_speed_mask = (freq >= fs_min) & (freq <= fp_min)
+            filter_line[selected_speed_mask] = np.sin(
+                0.5 * np.pi * (freq[selected_speed_mask] - fs_min) / (fp_min - fs_min)
+            )
         if fs_max != fp_max:
             # Filter transition band, going down from cp_max to cs_max
-            selected_speed_mask = ((freq >= fp_max) & (freq <= fs_max))
-            filter_line[selected_speed_mask] = np.cos(0.5 * np.pi *
-                                                            (freq[selected_speed_mask] - fp_max) / (fs_max - fp_max))
+            selected_speed_mask = (freq >= fp_max) & (freq <= fs_max)
+            filter_line[selected_speed_mask] = np.cos(
+                0.5 * np.pi * (freq[selected_speed_mask] - fp_max) / (fs_max - fp_max)
+            )
         # Stopband
         filter_line[freq >= fs_max] = 0
         filter_line[freq < fs_min] = 0
@@ -372,16 +433,16 @@ def fk_filter_design(trace_shape, selected_channels, dx, fs, cs_min=1400, cp_min
 
     fk_filter_matrix += np.flipud(fk_filter_matrix)
     fk_filter_matrix += np.fliplr(fk_filter_matrix)
-    
-    if display_filter: 
+
+    if display_filter:
         import matplotlib.pyplot as plt
-        import matplotlib.gridspec as gridspec
+        from matplotlib import gridspec
 
         # Context manager for the plot (to avoid changing the global settings)
         with plt.rc_context():
             # Change the font sizes for plots (if needed)
-            # plt.rc('font', size=20) 
-            # plt.rc('xtick', labelsize=16)  
+            # plt.rc('font', size=20)
+            # plt.rc('xtick', labelsize=16)
             # plt.rc('ytick', labelsize=16)
 
             fig = plt.figure(figsize=(18, 10))
@@ -389,27 +450,53 @@ def fk_filter_design(trace_shape, selected_channels, dx, fs, cs_min=1400, cp_min
 
             # Matrix display
             ax1 = plt.subplot(gs[0])
-            ax1.imshow(fk_filter_matrix, extent=[min(freq), max(freq), min(knum), max(knum)], aspect='auto', origin='lower')
-            ax1.hlines(knum[len(knum)//2 + 420], min(freq), max(freq), color='tab:orange', lw=2, ls=':')
-            ax1.vlines(freq[len(freq)//2 + 100], min(knum), max(knum), color='tab:blue', lw=2, ls=':')
+            ax1.imshow(
+                fk_filter_matrix,
+                extent=[min(freq), max(freq), min(knum), max(knum)],
+                aspect="auto",
+                origin="lower",
+            )
+            ax1.hlines(
+                knum[len(knum) // 2 + 420],
+                min(freq),
+                max(freq),
+                color="tab:orange",
+                lw=2,
+                ls=":",
+            )
+            ax1.vlines(
+                freq[len(freq) // 2 + 100],
+                min(knum),
+                max(knum),
+                color="tab:blue",
+                lw=2,
+                ls=":",
+            )
             # colorbar
             # cbar = plt.colorbar(ax1.imshow(fk_filter_matrix, extent=[min(freq), max(freq), min(knum), max(knum)], aspect='auto', origin='lower'))
-            ax1.set_ylabel('k [m$^{-1}$]')
-            ax1.set_xlabel('f [Hz]')
-            
+            ax1.set_ylabel("k [m$^{-1}$]")
+            ax1.set_xlabel("f [Hz]")
+
             # Frequency slice display
             ax2 = plt.subplot(gs[2], sharex=ax1)
-            ax2.plot(freq, fk_filter_matrix[len(knum)//2 + 420, :], lw=3, color='tab:orange')
-            ax2.set_xlabel('f [Hz]')
-            ax2.set_ylabel('Gain []')
+            ax2.plot(
+                freq,
+                fk_filter_matrix[len(knum) // 2 + 420, :],
+                lw=3,
+                color="tab:orange",
+            )
+            ax2.set_xlabel("f [Hz]")
+            ax2.set_ylabel("Gain []")
             ax2.set_xlim([min(freq), max(freq)])
             ax2.grid()
 
             # Wavenumber slice display
             ax3 = plt.subplot(gs[1], sharey=ax1)
-            ax3.plot(fk_filter_matrix[:, len(freq)//2 + 100], knum, lw=3, color='tab:blue')
-            ax3.set_xlabel('Gain []')
-            ax3.set_ylabel('k [m$^{-1}$]')
+            ax3.plot(
+                fk_filter_matrix[:, len(freq) // 2 + 100], knum, lw=3, color="tab:blue"
+            )
+            ax3.set_xlabel("Gain []")
+            ax3.set_ylabel("k [m$^{-1}$]")
             ax3.yaxis.set_label_position("right")
             ax3.set_ylim([min(knum), max(knum)])
             ax3.invert_xaxis()
@@ -422,7 +509,17 @@ def fk_filter_design(trace_shape, selected_channels, dx, fs, cs_min=1400, cp_min
 
 
 # Infinite wave speed filter, sine tapers
-def hybrid_filter_design(trace_shape, selected_channels, dx, fs, cs_min=1400., cp_min=1450., fmin=15., fmax=25., display_filter=False):
+def hybrid_filter_design(
+    trace_shape,
+    selected_channels,
+    dx,
+    fs,
+    cs_min=1400.0,
+    cp_min=1450.0,
+    fmin=15.0,
+    fmax=25.0,
+    display_filter=False,
+):
     """Designs an infinite wave speed bandpass f-k hybrid filter for DAS strain data
         Keeps by default data with propagation speed above 1450 m/s between [15 - 25] Hz (designed for fin whales)
 
@@ -451,7 +548,7 @@ def hybrid_filter_design(trace_shape, selected_channels, dx, fs, cs_min=1400., c
     -------
     fk_filter_matrix : array-like
         [channel x time sample] a scipy sparse array containing the f-k-filter
-    """    
+    """
 
     # Note that the chosen ChannelStep limits the bandwidth frequency obtained with fmax = 1500/ChannelStep*dx
     # Get the dimensions of the trace data
@@ -464,7 +561,7 @@ def hybrid_filter_design(trace_shape, selected_channels, dx, fs, cs_min=1400., c
     # 1st step: frequency bandpass filtering
     H = np.zeros_like(freq)
     # set the width of the frequency range tapers
-    df_taper = 4 # Hz
+    df_taper = 4  # Hz
     # Apply it to the frequencies of interest
     fpmax = fmax + df_taper
     fpmin = fmin - df_taper
@@ -473,17 +570,17 @@ def hybrid_filter_design(trace_shape, selected_channels, dx, fs, cs_min=1400., c
     fmax_idx = np.argmax(freq >= fpmax)
 
     # Filter transition band, ramping up from fpmin to fmin
-    rup_mask = ((freq >= fpmin) & (freq <= fmin))
+    rup_mask = (freq >= fpmin) & (freq <= fmin)
     H[rup_mask] = np.sin(0.5 * np.pi * (freq[rup_mask] - fpmin) / (fmin - fpmin))
     # Filter passband
     H[(freq >= fmin) & (freq <= fmax)] = 1
     # Filter transition band, ramping down from fmax to fpmax
-    rdo_mask = ((freq >= fmax) & (freq <= fpmax))
+    rdo_mask = (freq >= fmax) & (freq <= fpmax)
     H[rdo_mask] = np.cos(0.5 * np.pi * (freq[rdo_mask] - fmax) / (fmax - fpmax))
 
     # Replicate the bandpass frequency response along the k-axis to initialize the filter
     fk_filter_matrix = np.tile(H, (len(knum), 1))
-    
+
     # 2nd step: filtering waves whose speeds are below cmin, with a taper between csmin and cpmin
     # Going through frequencies between the considered range of the bandpass filter
     for i in range(fmin_idx, fmax_idx):
@@ -493,58 +590,66 @@ def hybrid_filter_design(trace_shape, selected_channels, dx, fs, cs_min=1400., c
         # Filter transition bands, ramping up from cs_min to cp_min
         ks = freq[i] / cs_min
         kp = freq[i] / cp_min
-        
+
         # Avoid zero division
         if ks != kp:
-            # f+ k+ quadrant                                             
-            selected_k_mask = ((knum >= -ks) & (knum <= -kp))
-            filter_col[selected_k_mask] = -np.sin(0.5 * np.pi * (knum[selected_k_mask] + ks) / (kp - ks))
+            # f+ k+ quadrant
+            selected_k_mask = (knum >= -ks) & (knum <= -kp)
+            filter_col[selected_k_mask] = -np.sin(
+                0.5 * np.pi * (knum[selected_k_mask] + ks) / (kp - ks)
+            )
 
             # f+ k- quadrant
-            selected_k_mask = ((-knum >= -ks) & (-knum <= -kp))
-            filter_col[selected_k_mask] = np.sin(0.5 * np.pi * (knum[selected_k_mask] - ks) / (kp - ks))
+            selected_k_mask = (-knum >= -ks) & (-knum <= -kp)
+            filter_col[selected_k_mask] = np.sin(
+                0.5 * np.pi * (knum[selected_k_mask] - ks) / (kp - ks)
+            )
 
         # Passband
         # Positive frequencies (kp is positive):
         filter_col[(knum < kp) & (knum > -kp)] = 1
 
-        # Fill the filter matrix by multiplication 
-        fk_filter_matrix[:, i] *= filter_col 
+        # Fill the filter matrix by multiplication
+        fk_filter_matrix[:, i] *= filter_col
 
     # Symmetrize the filter
     fk_filter_matrix += np.fliplr(fk_filter_matrix)
 
     # Filter display, optional
-    if display_filter: 
+    if display_filter:
         import matplotlib.pyplot as plt
-        import matplotlib.gridspec as gridspec
+        from matplotlib import gridspec
 
         # Context manager for the plot (to avoid changing the global settings)
         with plt.rc_context():
             # Change the font sizes for plots (if needed)
-            # plt.rc('font', size=20) 
-            # plt.rc('xtick', labelsize=16)  
+            # plt.rc('font', size=20)
+            # plt.rc('xtick', labelsize=16)
             # plt.rc('ytick', labelsize=16)
 
             fig = plt.figure(figsize=(18, 10))
             gs = gridspec.GridSpec(2, 2, width_ratios=[5, 1], height_ratios=[6, 2])
 
             ax1 = plt.subplot(gs[0])
-            ax1.imshow(fk_filter_matrix, extent=[min(freq), max(freq), min(knum), max(knum)], aspect='auto')
-            ax1.set_ylabel('k [m$^{-1}$]')
-            ax1.set_xlabel('f [Hz]')
-            
+            ax1.imshow(
+                fk_filter_matrix,
+                extent=[min(freq), max(freq), min(knum), max(knum)],
+                aspect="auto",
+            )
+            ax1.set_ylabel("k [m$^{-1}$]")
+            ax1.set_xlabel("f [Hz]")
+
             ax2 = plt.subplot(gs[2], sharex=ax1)
-            ax2.plot(freq, fk_filter_matrix[len(knum)//2, :], lw=3)
-            ax2.set_xlabel('f [Hz]')
-            ax2.set_ylabel('Gain []')
+            ax2.plot(freq, fk_filter_matrix[len(knum) // 2, :], lw=3)
+            ax2.set_xlabel("f [Hz]")
+            ax2.set_ylabel("Gain []")
             ax2.set_xlim([min(freq), max(freq)])
             ax2.grid()
 
             ax3 = plt.subplot(gs[1], sharey=ax1)
             ax3.plot(fk_filter_matrix[:, fmin_idx + 250], knum, lw=3)
-            ax3.set_xlabel('Gain []')
-            ax3.set_ylabel('k [m$^{-1}$]')
+            ax3.set_xlabel("Gain []")
+            ax3.set_ylabel("k [m$^{-1}$]")
             ax3.yaxis.set_label_position("right")
             ax3.set_ylim([min(knum), max(knum)])
             ax3.invert_xaxis()
@@ -557,7 +662,19 @@ def hybrid_filter_design(trace_shape, selected_channels, dx, fs, cs_min=1400., c
 
 
 # Non-infinite wave speed filter, sine tapers
-def hybrid_ninf_filter_design(trace_shape, selected_channels, dx, fs, cs_min=1400., cp_min=1450., cp_max=3400, cs_max=3500, fmin=15., fmax=25., display_filter=False):
+def hybrid_ninf_filter_design(
+    trace_shape,
+    selected_channels,
+    dx,
+    fs,
+    cs_min=1400.0,
+    cp_min=1450.0,
+    cp_max=3400,
+    cs_max=3500,
+    fmin=15.0,
+    fmax=25.0,
+    display_filter=False,
+):
     """Designs a bandpass f-k hybrid filter for DAS strain data
         Keeps by default data with propagation speed above 1450 m/s between [15 - 25] Hz (designed for fin whales)
 
@@ -586,7 +703,7 @@ def hybrid_ninf_filter_design(trace_shape, selected_channels, dx, fs, cs_min=140
     -------
     fk_filter_matrix : array-like
         [channel x time sample] a scipy sparse array containing the f-k-filter
-    """    
+    """
 
     # Note that the chosen ChannelStep limits the bandwidth frequency obtained with fmax = 1500/ChannelStep*dx
     # Get the dimensions of the trace data
@@ -597,13 +714,15 @@ def hybrid_ninf_filter_design(trace_shape, selected_channels, dx, fs, cs_min=140
     knum = np.fft.fftshift(np.fft.fftfreq(nnx, d=selected_channels[2] * dx))
 
     # Replace the sine/cosine tapers by butterworth filters
-    b, a = sp.butter(8, [fmin/(fs/2), fmax/(fs/2)], 'bp')
-    H = np.concatenate((np.zeros(len(freq)//2), np.abs(sp.freqz(b, a, worN=len(freq)//2)[1]) ** 2))
+    b, a = sp.butter(8, [fmin / (fs / 2), fmax / (fs / 2)], "bp")
+    H = np.concatenate(
+        (np.zeros(len(freq) // 2), np.abs(sp.freqz(b, a, worN=len(freq) // 2)[1]) ** 2)
+    )
 
     # 1st step: frequency bandpass filtering
     # H = np.zeros_like(freq)
     # set the width of the frequency range tapers, since butterworth filters are smooth
-    df_taper = 14 # Hz
+    df_taper = 14  # Hz
     # Apply it to the frequencies of interest
     fpmax = fmax + df_taper
     fpmin = fmin - df_taper
@@ -639,34 +758,38 @@ def hybrid_ninf_filter_design(trace_shape, selected_channels, dx, fs, cs_min=140
         # Avoid zero division
         if ks_min != kp_min:
             # f+ k+ quadrant ramp up
-            selected_k_mask = ((knum >= ks_min) & (knum <= kp_min))
-            filter_col[selected_k_mask] = np.sin(0.5 * np.pi * (knum[selected_k_mask] - ks_min) / (kp_min - ks_min))
+            selected_k_mask = (knum >= ks_min) & (knum <= kp_min)
+            filter_col[selected_k_mask] = np.sin(
+                0.5 * np.pi * (knum[selected_k_mask] - ks_min) / (kp_min - ks_min)
+            )
         if ks_max != kp_max:
             # f+ k- quadrant ramp down
-            selected_k_mask = ((knum >= kp_max) & (knum <= ks_max))
-            filter_col[selected_k_mask] = -np.sin(0.5 * np.pi * (knum[selected_k_mask] - ks_max) / (ks_max - kp_max))
+            selected_k_mask = (knum >= kp_max) & (knum <= ks_max)
+            filter_col[selected_k_mask] = -np.sin(
+                0.5 * np.pi * (knum[selected_k_mask] - ks_max) / (ks_max - kp_max)
+            )
 
         # Passband
         # Positive frequencies (kp_min is positive):
         filter_col[(knum > kp_min) & (knum < kp_max)] = 1
 
-        # Fill the filter matrix by multiplication 
-        fk_filter_matrix[:, i] *= filter_col 
+        # Fill the filter matrix by multiplication
+        fk_filter_matrix[:, i] *= filter_col
 
     # Symmetrize the filter
     fk_filter_matrix += np.fliplr(fk_filter_matrix)
     fk_filter_matrix += np.flipud(fk_filter_matrix)
 
     # Filter display, optional
-    if display_filter: 
+    if display_filter:
         import matplotlib.pyplot as plt
-        import matplotlib.gridspec as gridspec
+        from matplotlib import gridspec
 
         # Context manager for the plot (to avoid changing the global settings)
         with plt.rc_context():
             # Change the font sizes for plots (if needed)
-            # plt.rc('font', size=20) 
-            # plt.rc('xtick', labelsize=16)  
+            # plt.rc('font', size=20)
+            # plt.rc('xtick', labelsize=16)
             # plt.rc('ytick', labelsize=16)
 
             fig = plt.figure(figsize=(18, 10))
@@ -674,27 +797,53 @@ def hybrid_ninf_filter_design(trace_shape, selected_channels, dx, fs, cs_min=140
 
             # Matrix display
             ax1 = plt.subplot(gs[0])
-            ax1.imshow(fk_filter_matrix, extent=[min(freq), max(freq), min(knum), max(knum)], aspect='auto', origin='lower')
-            ax1.hlines(knum[len(knum)//2 + 420], min(freq), max(freq), color='tab:orange', lw=2, ls=':')
-            ax1.vlines(freq[len(freq)//2 + 1500], min(knum), max(knum), color='tab:blue', lw=2, ls=':')
+            ax1.imshow(
+                fk_filter_matrix,
+                extent=[min(freq), max(freq), min(knum), max(knum)],
+                aspect="auto",
+                origin="lower",
+            )
+            ax1.hlines(
+                knum[len(knum) // 2 + 420],
+                min(freq),
+                max(freq),
+                color="tab:orange",
+                lw=2,
+                ls=":",
+            )
+            ax1.vlines(
+                freq[len(freq) // 2 + 1500],
+                min(knum),
+                max(knum),
+                color="tab:blue",
+                lw=2,
+                ls=":",
+            )
             # colorbar
             # cbar = plt.colorbar(ax1.imshow(fk_filter_matrix, extent=[min(freq), max(freq), min(knum), max(knum)], aspect='auto', origin='lower'))
-            ax1.set_ylabel('k [m$^{-1}$]')
-            ax1.set_xlabel('f [Hz]')
-            
+            ax1.set_ylabel("k [m$^{-1}$]")
+            ax1.set_xlabel("f [Hz]")
+
             # Frequency slice display
             ax2 = plt.subplot(gs[2], sharex=ax1)
-            ax2.plot(freq, fk_filter_matrix[len(knum)//2 + 420, :], lw=3, color='tab:orange')
-            ax2.set_xlabel('f [Hz]')
-            ax2.set_ylabel('Gain []')
+            ax2.plot(
+                freq,
+                fk_filter_matrix[len(knum) // 2 + 420, :],
+                lw=3,
+                color="tab:orange",
+            )
+            ax2.set_xlabel("f [Hz]")
+            ax2.set_ylabel("Gain []")
             ax2.set_xlim([min(freq), max(freq)])
             ax2.grid()
 
             # Wavenumber slice display
             ax3 = plt.subplot(gs[1], sharey=ax1)
-            ax3.plot(fk_filter_matrix[:, len(freq)//2 + 1500], knum, lw=3, color='tab:blue')
-            ax3.set_xlabel('Gain []')
-            ax3.set_ylabel('k [m$^{-1}$]')
+            ax3.plot(
+                fk_filter_matrix[:, len(freq) // 2 + 1500], knum, lw=3, color="tab:blue"
+            )
+            ax3.set_xlabel("Gain []")
+            ax3.set_ylabel("k [m$^{-1}$]")
             ax3.yaxis.set_label_position("right")
             ax3.set_ylim([min(knum), max(knum)])
             ax3.invert_xaxis()
@@ -702,12 +851,22 @@ def hybrid_ninf_filter_design(trace_shape, selected_channels, dx, fs, cs_min=140
             ax3.grid()
             plt.tight_layout()
             plt.show()
-            
+
     return sparse.COO.from_numpy(fk_filter_matrix)
 
 
 # Infinite wave speed filter, gaussian tapers
-def hybrid_gs_filter_design(trace_shape, selected_channels, dx, fs, cs_min=1400., cp_min=1450., fmin=15., fmax=25., display_filter=False):
+def hybrid_gs_filter_design(
+    trace_shape,
+    selected_channels,
+    dx,
+    fs,
+    cs_min=1400.0,
+    cp_min=1450.0,
+    fmin=15.0,
+    fmax=25.0,
+    display_filter=False,
+):
     """Designs a bandpass f-k hybrid filter for DAS strain data
         Keeps by default data with propagation speed above 1450 m/s between [15 - 25] Hz (designed for fin whales)
 
@@ -736,7 +895,7 @@ def hybrid_gs_filter_design(trace_shape, selected_channels, dx, fs, cs_min=1400.
     -------
     fk_filter_matrix : array-like
         [channel x time sample] a scipy sparse array containing the f-k-filter
-    """    
+    """
 
     # Note that the chosen ChannelStep limits the bandwidth frequency obtained with fmax = 1500/ChannelStep*dx
     # Get the dimensions of the trace data
@@ -749,7 +908,7 @@ def hybrid_gs_filter_design(trace_shape, selected_channels, dx, fs, cs_min=1400.
     # 1st step: frequency bandpass filtering
     H = np.zeros_like(freq)
     # set the width of the frequency range tapers
-    df_taper = 4 # Hz
+    df_taper = 4  # Hz
     # Apply it to the frequencies of interest
     fpmax = fmax + df_taper
     fpmin = fmin - df_taper
@@ -762,7 +921,7 @@ def hybrid_gs_filter_design(trace_shape, selected_channels, dx, fs, cs_min=1400.
 
     # Replicate the bandpass frequency response along the k-axis to initialize the filter
     fk_filter_matrix = np.tile(H, (len(knum), 1))
-    
+
     # 2nd step: filtering waves whose speeds are below cmin, with a taper between csmin and cpmin
     # Going through frequencies between the considered range of the bandpass filter
     for i in range(fmin_idx, fmax_idx):
@@ -772,55 +931,60 @@ def hybrid_gs_filter_design(trace_shape, selected_channels, dx, fs, cs_min=1400.
         # Filter transition bands, ramping up from cs_min to cp_min
         ks = freq[i] / cs_min
         kp = freq[i] / cp_min
-        
+
         # Avoid zero division
         if ks != kp:
-            # f+ k+ quadrant                                             
-            selected_k_mask = ((knum >= -ks) & (knum <= -kp))
+            # f+ k+ quadrant
+            selected_k_mask = (knum >= -ks) & (knum <= -kp)
 
             # f+ k- quadrant
-            selected_k_mask = ((-knum >= -ks) & (-knum <= -kp))
+            selected_k_mask = (-knum >= -ks) & (-knum <= -kp)
 
         # Passband
         # Positive frequencies (kp is positive):
         filter_col[(knum < kp) & (knum > -kp)] = 1
 
-        # Fill the filter matrix by multiplication 
-        fk_filter_matrix[:, i] *= filter_col 
+        # Fill the filter matrix by multiplication
+        fk_filter_matrix[:, i] *= filter_col
 
     # Symmetrize the filter
     fk_filter_matrix += np.fliplr(fk_filter_matrix)
     fk_filter_matrix = ndimage.gaussian_filter(fk_filter_matrix, 20)
 
     # Filter display, optional
-    if display_filter: 
+    if display_filter:
         import matplotlib.pyplot as plt
-        import matplotlib.gridspec as gridspec
+        from matplotlib import gridspec
+
         with plt.rc_context():
             # Change the font sizes for plots (if needed)
-            # plt.rc('font', size=20) 
-            # plt.rc('xtick', labelsize=16)  
+            # plt.rc('font', size=20)
+            # plt.rc('xtick', labelsize=16)
             # plt.rc('ytick', labelsize=16)
 
             fig = plt.figure(figsize=(18, 10))
             gs = gridspec.GridSpec(2, 2, width_ratios=[5, 1], height_ratios=[6, 2])
 
             ax1 = plt.subplot(gs[0])
-            ax1.imshow(fk_filter_matrix, extent=[min(freq), max(freq), min(knum), max(knum)], aspect='auto')
-            ax1.set_ylabel('k [m$^{-1}$]')
-            ax1.set_xlabel('f [Hz]')
-            
+            ax1.imshow(
+                fk_filter_matrix,
+                extent=[min(freq), max(freq), min(knum), max(knum)],
+                aspect="auto",
+            )
+            ax1.set_ylabel("k [m$^{-1}$]")
+            ax1.set_xlabel("f [Hz]")
+
             ax2 = plt.subplot(gs[2], sharex=ax1)
-            ax2.plot(freq, fk_filter_matrix[len(knum)//2, :], lw=3)
-            ax2.set_xlabel('f [Hz]')
-            ax2.set_ylabel('Gain []')
+            ax2.plot(freq, fk_filter_matrix[len(knum) // 2, :], lw=3)
+            ax2.set_xlabel("f [Hz]")
+            ax2.set_ylabel("Gain []")
             ax2.set_xlim([min(freq), max(freq)])
             ax2.grid()
 
             ax3 = plt.subplot(gs[1], sharey=ax1)
             ax3.plot(fk_filter_matrix[:, fmin_idx + 250], knum, lw=3)
-            ax3.set_xlabel('Gain []')
-            ax3.set_ylabel('k [m$^{-1}$]')
+            ax3.set_xlabel("Gain []")
+            ax3.set_ylabel("k [m$^{-1}$]")
             ax3.yaxis.set_label_position("right")
             ax3.set_ylim([min(knum), max(knum)])
             ax3.invert_xaxis()
@@ -833,7 +997,9 @@ def hybrid_gs_filter_design(trace_shape, selected_channels, dx, fs, cs_min=1400.
 
 
 # Non-infinite wave speed filter, gaussian tapers
-def hybrid_ninf_gs_filter_design(trace_shape, selected_channels, dx, fs, fk_params, display_filter=False):
+def hybrid_ninf_gs_filter_design(
+    trace_shape, selected_channels, dx, fs, fk_params, display_filter=False
+):
     """Designs a bandpass f-k hybrid filter for DAS strain data
         Keeps by default data with propagation speed above 1450 m/s between [15 - 25] Hz (designed for fin whales)
 
@@ -856,15 +1022,15 @@ def hybrid_ninf_gs_filter_design(trace_shape, selected_channels, dx, fs, fk_para
     -------
     fk_filter_matrix : array-like
         [channel x time sample] a scipy sparse array containing the f-k-filter
-    """    
+    """
 
     # Note that the chosen ChannelStep limits the bandwidth frequency obtained with fmax = 1500/ChannelStep*dx
     # Get the dimensions of the trace data
     nnx, nns = trace_shape
-    fmin = fk_params['fmin']
-    fmax = fk_params['fmax']
-    c_min = fk_params['c_min']
-    c_max = fk_params['c_max']
+    fmin = fk_params["fmin"]
+    fmax = fk_params["fmax"]
+    c_min = fk_params["c_min"]
+    c_max = fk_params["c_max"]
 
     # Define frequency and wavenumber axes
     freq = np.fft.fftshift(np.fft.fftfreq(nns, d=1 / fs))
@@ -891,11 +1057,13 @@ def hybrid_ninf_gs_filter_design(trace_shape, selected_channels, dx, fs, fk_para
         # Positive frequencies (kp_min is positive):
         filter_col[(knum > kp_min) & (knum < kp_max)] = 1
 
-        # Fill the filter matrix by multiplication 
+        # Fill the filter matrix by multiplication
         fk_filter_matrix[:, i] = filter_col
 
     # Apply a Gaussian filter to the filter matrix
-    sub_matrix = fk_filter_matrix[len(knum)//2:len(knum), len(freq)//2:len(freq)]
+    sub_matrix = fk_filter_matrix[
+        len(knum) // 2 : len(knum), len(freq) // 2 : len(freq)
+    ]
 
     # Ensure the matrix is in float32 format for OpenCV
     sub_matrix = sub_matrix.astype(np.float32)
@@ -904,22 +1072,24 @@ def hybrid_ninf_gs_filter_design(trace_shape, selected_channels, dx, fs, fk_para
     blurred_sub_matrix = cv2.GaussianBlur(sub_matrix, (0, 0), 40)
 
     # Replace the submatrix in the original matrix if needed
-    fk_filter_matrix[len(knum)//2:len(knum), len(freq)//2:len(freq)] = blurred_sub_matrix
+    fk_filter_matrix[len(knum) // 2 : len(knum), len(freq) // 2 : len(freq)] = (
+        blurred_sub_matrix
+    )
 
     # Symmetrize the filter
     fk_filter_matrix += np.fliplr(fk_filter_matrix)
     fk_filter_matrix += np.flipud(fk_filter_matrix)
 
     # Filter display, optional
-    if display_filter: 
+    if display_filter:
         import matplotlib.pyplot as plt
-        import matplotlib.gridspec as gridspec
+        from matplotlib import gridspec
 
         # Context manager for the plot (to avoid changing the global settings)
         with plt.rc_context():
             # Change the font sizes for plots (if needed)
-            # plt.rc('font', size=20) 
-            # plt.rc('xtick', labelsize=16)  
+            # plt.rc('font', size=20)
+            # plt.rc('xtick', labelsize=16)
             # plt.rc('ytick', labelsize=16)
 
             fig = plt.figure(figsize=(14.8, 8.8))
@@ -927,27 +1097,53 @@ def hybrid_ninf_gs_filter_design(trace_shape, selected_channels, dx, fs, fk_para
 
             # Matrix display
             ax1 = plt.subplot(gs[0])
-            ax1.imshow(fk_filter_matrix, extent=[min(freq), max(freq), min(knum), max(knum)], aspect='auto', origin='lower')
-            ax1.hlines(knum[len(knum)//2 + 420], min(freq), max(freq), color='tab:orange', lw=4, ls=':')
-            ax1.vlines(freq[len(freq)//2 + 1500], min(knum), max(knum), color='tab:blue', lw=4, ls=':')
+            ax1.imshow(
+                fk_filter_matrix,
+                extent=[min(freq), max(freq), min(knum), max(knum)],
+                aspect="auto",
+                origin="lower",
+            )
+            ax1.hlines(
+                knum[len(knum) // 2 + 420],
+                min(freq),
+                max(freq),
+                color="tab:orange",
+                lw=4,
+                ls=":",
+            )
+            ax1.vlines(
+                freq[len(freq) // 2 + 1500],
+                min(knum),
+                max(knum),
+                color="tab:blue",
+                lw=4,
+                ls=":",
+            )
             # colorbar
             # cbar = plt.colorbar(ax1.imshow(fk_filter_matrix, extent=[min(freq), max(freq), min(knum), max(knum)], aspect='auto', origin='lower'))
-            ax1.set_ylabel('Wavenumber [m$^{-1}$]')
+            ax1.set_ylabel("Wavenumber [m$^{-1}$]")
             # ax1.set_xlabel('Frequency [Hz]')
-            
+
             # Frequency slice display
             ax2 = plt.subplot(gs[2], sharex=ax1)
-            ax2.plot(freq, fk_filter_matrix[len(knum)//2 + 420, :], lw=3, color='tab:orange')
-            ax2.set_xlabel('Frequency [Hz]')
-            ax2.set_ylabel('Gain []')
+            ax2.plot(
+                freq,
+                fk_filter_matrix[len(knum) // 2 + 420, :],
+                lw=3,
+                color="tab:orange",
+            )
+            ax2.set_xlabel("Frequency [Hz]")
+            ax2.set_ylabel("Gain []")
             ax2.set_xlim([min(freq), max(freq)])
             ax2.grid()
 
             # Wavenumber slice display
             ax3 = plt.subplot(gs[1], sharey=ax1)
-            ax3.plot(fk_filter_matrix[:, len(freq)//2 + 1500], knum, lw=3, color='tab:blue')
-            ax3.set_xlabel('Gain []')
-            ax3.set_ylabel('Wavenumber [m$^{-1}$]')
+            ax3.plot(
+                fk_filter_matrix[:, len(freq) // 2 + 1500], knum, lw=3, color="tab:blue"
+            )
+            ax3.set_xlabel("Gain []")
+            ax3.set_ylabel("Wavenumber [m$^{-1}$]")
             ax3.yaxis.set_label_position("right")
             ax3.set_ylim([min(knum), max(knum)])
             ax3.invert_xaxis()
@@ -979,7 +1175,7 @@ def taper_data(trace):
     return trace
 
 
-def taper_data2d(data, taper_type='tukey'):
+def taper_data2d(data, taper_type="tukey"):
     """
     Applies tapering (windowing) to the data in both space (channels) and time (samples) domains.
 
@@ -995,22 +1191,28 @@ def taper_data2d(data, taper_type='tukey'):
     tapered_data : ndarray
         The tapered data array with the same shape as input data.
     """
-    
+
     # Get the shape of the data
     n_channels, n_samples = data.shape
 
     # Choose the taper window for space (channels) and time (samples)
-    if taper_type == 'hanning':
+    if taper_type == "hanning":
         spatial_taper = np.hanning(n_channels)  # Hanning window for spatial dimension
         temporal_taper = np.hanning(n_samples)  # Hanning window for temporal dimension
-    elif taper_type == 'hamming':
+    elif taper_type == "hamming":
         spatial_taper = np.hamming(n_channels)  # Hamming window for spatial dimension
         temporal_taper = np.hamming(n_samples)  # Hamming window for temporal dimension
-    elif taper_type == 'tukey':
-        spatial_taper = sp.windows.tukey(n_channels, alpha=0.03)  # Tukey window for spatial dimension
-        temporal_taper = sp.windows.tukey(n_samples, alpha=0.03)  # Tukey window for temporal dimension
+    elif taper_type == "tukey":
+        spatial_taper = sp.windows.tukey(
+            n_channels, alpha=0.03
+        )  # Tukey window for spatial dimension
+        temporal_taper = sp.windows.tukey(
+            n_samples, alpha=0.03
+        )  # Tukey window for temporal dimension
     else:
-        raise ValueError("Unsupported taper_type. Choose 'hanning', 'hamming', or 'tukey'.")
+        raise ValueError(
+            "Unsupported taper_type. Choose 'hanning', 'hamming', or 'tukey'."
+        )
 
     # Apply the tapers
     tapered_data = data * spatial_taper[:, np.newaxis] * temporal_taper[np.newaxis, :]
@@ -1051,7 +1253,8 @@ def fk_filter_filt(trace, fk_filter_matrix, tapering=False):
 
     return trace.real
 
-# TODO: transfer function from private branche using parallel fft 
+
+# TODO: transfer function from private branche using parallel fft
 def fk_filter_sparsefilt(trace, fk_filter_matrix, tapering=False):
     """
     Applies a pre-calculated f-k filter to DAS strain data
@@ -1070,7 +1273,7 @@ def fk_filter_sparsefilt(trace, fk_filter_matrix, tapering=False):
     """
     if tapering:
         trace = taper_data(trace)
-    
+
     trace = np.asarray(trace, dtype=np.complex64)
 
     # Calculate the frequency-wavenumber spectrum
@@ -1124,7 +1327,7 @@ def butterworth_filter(filterspec, fs):
     # Build a filter of the desired type
     wn = np.array(filter_critical_freq) / (fs / 2)  # convert to angular frequency
 
-    filter_sos = sp.butter(filter_order, wn, btype=filter_type_str, output='sos')
+    filter_sos = sp.butter(filter_order, wn, btype=filter_type_str, output="sos")
 
     return filter_sos
 
@@ -1143,7 +1346,7 @@ def instant_freq(channel, fs):
     -------
     np.ndarray
         instantaneous frequency along time[1:]
-    """    
+    """
     # Compute the instantaneous frequency
     fi = np.diff(np.unwrap(np.angle(sp.hilbert(channel)))) / (2.0 * np.pi) * fs
     # Sliding window filtering to smooth out the fi
@@ -1155,10 +1358,10 @@ def instant_freq(channel, fs):
     # Find the index corresponding to the median frequency at each time point
     # median_index = np.argmax(cumulative_sum >= 0.5 * cumulative_sum[-1], axis=0)
     # fm = f[median_index]
-    return fi #, ffi, t, fm
+    return fi  # , ffi, t, fm
 
 
-def bp_filt(data,fs,fmin,fmax):
+def bp_filt(data, fs, fmin, fmax):
     """bp_filt - perform bandpass filtering on an array of DAS data
 
     Parameters
@@ -1167,7 +1370,7 @@ def bp_filt(data,fs,fmin,fmax):
         array containing wave signal from DAS data
     fs : float
         sampling frequency
-    fmin : float    
+    fmin : float
         minimum frequency for the passband
     fmax : float
         maximum frequency for the passband
@@ -1177,13 +1380,13 @@ def bp_filt(data,fs,fmin,fmax):
     tr_filt : array-like
         bandpass filtered data
     """
-    b, a = sp.butter(8, [fmin/(fs/2), fmax/(fs/2)], 'bp')
+    b, a = sp.butter(8, [fmin / (fs / 2), fmax / (fs / 2)], "bp")
     tr_filt = sp.filtfilt(b, a, data, axis=1)
     return tr_filt
 
 
-def fk_filt(data,tint,fs,xint,dx,c_min,c_max, display_filter=False):
-    """fk_filt - perform fk filtering on an array of DAS data   
+def fk_filt(data, tint, fs, xint, dx, c_min, c_max, display_filter=False):
+    """fk_filt - perform fk filtering on an array of DAS data
 
     Parameters
     ----------
@@ -1208,35 +1411,35 @@ def fk_filt(data,tint,fs,xint,dx,c_min,c_max, display_filter=False):
         vector of frequencies
 
     k : array-like
-        vector of wavenumbers   
+        vector of wavenumbers
     g : array-like
         2D designed gaussian filter
     data_fft_g: array-like
         2D Fourier transformed data, filtered by g
     data_g.real: array-like
         Real value of spatiotemporal filtered data
-    """    
+    """
 
     # Perform 2D Fourier Transform on the detrended input data
     data_fft = np.fft.fft2(data)
     # Make freq and wavenum vectors
     nx = data_fft.shape[0]
     ns = data_fft.shape[1]
-    f = fftshift(fftfreq(ns, d = tint/fs))
-    k = fftshift(fftfreq(nx, d = xint*dx))
-    ff,kk = np.meshgrid(f,k)
+    f = fftshift(fftfreq(ns, d=tint / fs))
+    k = fftshift(fftfreq(nx, d=xint * dx))
+    ff, kk = np.meshgrid(f, k)
 
     #  Define a filter in the f-k domain
     # Soundwaves have f/k = c so f = k*c
 
-    g = 1.0*((ff < kk*c_min) & (ff < -kk*c_min))
-    g2 = 1.0*((ff < kk*c_max) & (ff < -kk*c_max))
+    g = 1.0 * ((ff < kk * c_min) & (ff < -kk * c_min))
+    g2 = 1.0 * ((ff < kk * c_max) & (ff < -kk * c_max))
 
     # Symmetrize the filter
     g += np.fliplr(g)
     # g2 += np.fliplr(g2)
-    g -= g2 + np.fliplr(g2) # combine to have g = g - g2
-    
+    g -= g2 + np.fliplr(g2)  # combine to have g = g - g2
+
     # Apply Gaussian filter to the f-k filter
     # Tuning the standard deviation of the filter can improve computational efficiency
     # Use a gaussian filter from openCV
@@ -1252,19 +1455,19 @@ def fk_filt(data,tint,fs,xint,dx,c_min,c_max, display_filter=False):
     data_fft_g = fftshift(data_fft) * g
     # Perform inverse Fourier Transform to obtain the filtered data in t-x domain
     data_g = ifft2(ifftshift(data_fft_g))
-    
+
     # return f, k, g, data_fft_g, data_g.real
 
     # Filter display, optional
-    if display_filter: 
+    if display_filter:
         import matplotlib.pyplot as plt
-        import matplotlib.gridspec as gridspec
+        from matplotlib import gridspec
 
         # Context manager for the plot (to avoid changing the global settings)
         with plt.rc_context():
             # Change the font sizes for plots (if needed)
-            # plt.rc('font', size=20) 
-            # plt.rc('xtick', labelsize=16)  
+            # plt.rc('font', size=20)
+            # plt.rc('xtick', labelsize=16)
             # plt.rc('ytick', labelsize=16)
 
             fig = plt.figure(figsize=(18, 10))
@@ -1272,27 +1475,36 @@ def fk_filt(data,tint,fs,xint,dx,c_min,c_max, display_filter=False):
 
             # Matrix display
             ax1 = plt.subplot(gs[0])
-            ax1.imshow(g, extent=[min(f), max(f), min(k), max(k)], aspect='auto', origin='lower')
-            ax1.hlines(k[len(k)//2 + 420], min(f), max(f), color='tab:orange', lw=2, ls=':')
-            ax1.vlines(f[len(f)//2 + 1500], min(k), max(k), color='tab:blue', lw=2, ls=':')
+            ax1.imshow(
+                g,
+                extent=[min(f), max(f), min(k), max(k)],
+                aspect="auto",
+                origin="lower",
+            )
+            ax1.hlines(
+                k[len(k) // 2 + 420], min(f), max(f), color="tab:orange", lw=2, ls=":"
+            )
+            ax1.vlines(
+                f[len(f) // 2 + 1500], min(k), max(k), color="tab:blue", lw=2, ls=":"
+            )
             # colorbar
             # cbar = plt.colorbar(ax1.imshow(fk_filter_matrix, extent=[min(freq), max(freq), min(knum), max(knum)], aspect='auto', origin='lower'))
-            ax1.set_ylabel('k [m$^{-1}$]')
-            ax1.set_xlabel('f [Hz]')
-            
+            ax1.set_ylabel("k [m$^{-1}$]")
+            ax1.set_xlabel("f [Hz]")
+
             # Frequency slice display
             ax2 = plt.subplot(gs[2], sharex=ax1)
-            ax2.plot(f, g[len(k)//2 + 420, :], lw=3, color='tab:orange')
-            ax2.set_xlabel('f [Hz]')
-            ax2.set_ylabel('Gain []')
+            ax2.plot(f, g[len(k) // 2 + 420, :], lw=3, color="tab:orange")
+            ax2.set_xlabel("f [Hz]")
+            ax2.set_ylabel("Gain []")
             ax2.set_xlim([min(f), max(f)])
             ax2.grid()
 
             # Wavenumber slice display
             ax3 = plt.subplot(gs[1], sharey=ax1)
-            ax3.plot(g[:, len(f)//2 + 1500], k, lw=3, color='tab:blue')
-            ax3.set_xlabel('Gain []')
-            ax3.set_ylabel('k [m$^{-1}$]')
+            ax3.plot(g[:, len(f) // 2 + 1500], k, lw=3, color="tab:blue")
+            ax3.set_xlabel("Gain []")
+            ax3.set_ylabel("k [m$^{-1}$]")
             ax3.yaxis.set_label_position("right")
             ax3.set_ylim([min(k), max(k)])
             ax3.invert_xaxis()
@@ -1322,7 +1534,9 @@ def snr_tr_array(trace):
         A 2D array containing the Signal-to-Noise Ratio (SNR) values for each element
         in the input trace.
     """
-    return 10 * np.log10(abs(sp.hilbert(trace, axis=1)) ** 2 / np.std(trace, axis=1, keepdims=True) ** 2)
+    return 10 * np.log10(
+        abs(sp.hilbert(trace, axis=1)) ** 2 / np.std(trace, axis=1, keepdims=True) ** 2
+    )
 
 
 def calc_snr_median(trace):
@@ -1342,12 +1556,14 @@ def calc_snr_median(trace):
     """
 
     envelope = abs(sp.hilbert(trace, axis=1))
-    return 10 * np.log10(envelope ** 2 / np.median(envelope, axis=1, keepdims=True) ** 2)
+    return 10 * np.log10(envelope**2 / np.median(envelope, axis=1, keepdims=True) ** 2)
 
 
 def moving_average(signal, window_size):
-    return np.convolve(signal, np.ones(window_size) / window_size, mode='same')
+    return np.convolve(signal, np.ones(window_size) / window_size, mode="same")
 
 
 def moving_average_matrix(matrix, window_size):
-    return np.array([moving_average(matrix[i, :], window_size) for i in range(matrix.shape[0])])
+    return np.array(
+        [moving_average(matrix[i, :], window_size) for i in range(matrix.shape[0])]
+    )

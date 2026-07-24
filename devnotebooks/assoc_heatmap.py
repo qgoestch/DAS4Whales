@@ -16,48 +16,43 @@
 # # Heatmap from the rectangular kernel density estimation
 
 from IPython import get_ipython
+
 ipython = get_ipython()
 ipython.run_line_magic("reload_ext", "autoreload")
 ipython.run_line_magic("autoreload", "2")
 
 # %reload_ext autoreload
 # %autoreload 2
-# Imports   
-import numpy as np
-import xarray as xr
+# Imports
 import matplotlib.pyplot as plt
-import das4whales as dw
+import numpy as np
 import pandas as pd
-import matplotlib.colors as mcolors
-from matplotlib.colors import LightSource
-import matplotlib.cm as cm
-import matplotlib.colors as colors
-from tqdm import tqdm
-import dask.array as da
+import xarray as xr
+
 # from dask import delayed
 from joblib import Parallel, delayed
-from scipy.stats import gaussian_kde
-from sklearn.neighbors import KernelDensity
-from scipy.optimize import curve_fit
+from matplotlib import colors
+
+import das4whales as dw
 
 # +
 # Load the peak indexes and the metadata
-n_ds = xr.load_dataset('../out/peaks_indexes_tp_North_2021-11-04_02:00:02_ipi3_th_4.nc') 
-s_ds = xr.load_dataset('../out/peaks_indexes_tp_South_2021-11-04_02:00:02_ipi3_th_5.nc')
+n_ds = xr.load_dataset("../out/peaks_indexes_tp_North_2021-11-04_02:00:02_ipi3_th_4.nc")
+s_ds = xr.load_dataset("../out/peaks_indexes_tp_South_2021-11-04_02:00:02_ipi3_th_5.nc")
 
-# n_ds = xr.load_dataset('../out/peaks_indexes_tp_North_2021-11-04_08:00:02_ipi3_th_4.nc') 
+# n_ds = xr.load_dataset('../out/peaks_indexes_tp_North_2021-11-04_08:00:02_ipi3_th_4.nc')
 # s_ds = xr.load_dataset('../out/peaks_indexes_tp_South_2021-11-04_08:00:02_ipi3_th_5.nc')
 
 # +
 # Constants from the metadata
 
-fs = n_ds.attrs['fs']
-dx = n_ds.attrs['dx']
-nnx = n_ds.attrs['data_shape'][0] + 1 #Fix this
-snx = s_ds.attrs['data_shape'][0] #Fix this
-n_selected_channels_m = n_ds.attrs['selected_channels_m']
-s_selected_channels_m = s_ds.attrs['selected_channels_m']
-    
+fs = n_ds.attrs["fs"]
+dx = n_ds.attrs["dx"]
+nnx = n_ds.attrs["data_shape"][0] + 1  # Fix this
+snx = s_ds.attrs["data_shape"][0]  # Fix this
+n_selected_channels_m = n_ds.attrs["selected_channels_m"]
+s_selected_channels_m = s_ds.attrs["selected_channels_m"]
+
 # Constants management
 c0 = 1480
 n_selected_channels = dw.data_handle.get_selected_channels(n_selected_channels_m, dx)
@@ -122,28 +117,32 @@ plt.show()
 # print(s_peaks.shape)
 # -
 
-# ## Plot the map 
+# ## Plot the map
 
 # +
 # Import the cable location
-df_north = pd.read_csv('../data/north_DAS_multicoord.csv')
-df_south = pd.read_csv('../data/south_DAS_multicoord.csv')
+df_north = pd.read_csv("../data/north_DAS_multicoord.csv")
+df_south = pd.read_csv("../data/south_DAS_multicoord.csv")
 
 
 # Extract the part of the dataframe used for the time picking process
-idx_shift0 = int(n_begin_chan - df_north["chan_idx"].iloc[0]) # Shift between the cable locations (starting at the beach) and the channel locations
+idx_shift0 = int(
+    n_begin_chan - df_north["chan_idx"].iloc[0]
+)  # Shift between the cable locations (starting at the beach) and the channel locations
 idx_shiftn = int(n_end_chan - df_north["chan_idx"].iloc[-1])
 
-df_north_used = df_north.iloc[idx_shift0:idx_shiftn:n_selected_channels[2]]
+df_north_used = df_north.iloc[idx_shift0 : idx_shiftn : n_selected_channels[2]]
 
-idx_shift0 = int(s_begin_chan - df_south["chan_idx"].iloc[0]) # Shift between the cable locations (starting at the beach) and the channel locations
+idx_shift0 = int(
+    s_begin_chan - df_south["chan_idx"].iloc[0]
+)  # Shift between the cable locations (starting at the beach) and the channel locations
 idx_shiftn = int(s_end_chan - df_south["chan_idx"].iloc[-1])
 
-df_south_used = df_south.iloc[idx_shift0:idx_shiftn:s_selected_channels[2]]
+df_south_used = df_south.iloc[idx_shift0 : idx_shiftn : s_selected_channels[2]]
 
 # Import the bathymetry data
-bathy, xlon, ylat = dw.map.load_bathymetry('../data/GMRT_OOI_RCA_Cables.grd')
-print(f'Origin of the corrdinates. Latitude = {ylat[0]}, Longitude = {xlon[-1]}')
+bathy, xlon, ylat = dw.map.load_bathymetry("../data/GMRT_OOI_RCA_Cables.grd")
+print(f"Origin of the corrdinates. Latitude = {ylat[0]}, Longitude = {xlon[-1]}")
 
 utm_x0, utm_y0 = dw.map.latlon_to_utm(xlon[0], ylat[0])
 utm_xf, utm_yf = dw.map.latlon_to_utm(xlon[-1], ylat[-1])
@@ -168,13 +167,13 @@ dw.map.plot_cables2D(df_north, df_south, bathy, xlon, ylat)
 n_cable_pos = np.zeros((len(df_north_used), 3))
 s_cable_pos = np.zeros((len(df_south_used), 3))
 
-n_cable_pos[:, 0] = df_north_used['x']
-n_cable_pos[:, 1] = df_north_used['y']
-n_cable_pos[:, 2] = df_north_used['depth']
+n_cable_pos[:, 0] = df_north_used["x"]
+n_cable_pos[:, 1] = df_north_used["y"]
+n_cable_pos[:, 2] = df_north_used["depth"]
 
-s_cable_pos[:, 0] = df_south_used['x']
-s_cable_pos[:, 1] = df_south_used['y']
-s_cable_pos[:, 2] = df_south_used['depth']
+s_cable_pos[:, 0] = df_south_used["x"]
+s_cable_pos[:, 1] = df_south_used["y"]
+s_cable_pos[:, 2] = df_south_used["depth"]
 
 # print(n_cable_pos.shape)
 # dist = np.arange(n_cable_pos.shape[0]) * (df_north['chan_m'][1] - df_north['chan_m'][0]) + df_north['chan_m'][idx_shift]
@@ -183,14 +182,14 @@ s_cable_pos[:, 2] = df_south_used['depth']
 from scipy.interpolate import RegularGridInterpolator
 
 # Create a grid of coordinates, choosing the spacing of the grid
-dx_grid = 2000 # [m]
-dy_grid = 2000 # [m]
+dx_grid = 2000  # [m]
+dy_grid = 2000  # [m]
 xg, yg = np.meshgrid(np.arange(xf, x0, dx_grid), np.arange(y0, yf, dy_grid))
 
 ti = 0
 zg = -40
 
-interpolator = RegularGridInterpolator((x, y),  bathy.T)
+interpolator = RegularGridInterpolator((x, y), bathy.T)
 bathy_interp = interpolator((xg, yg))
 
 # Remove points if the ocean depth is too shallow (i.e., less than -25 m)
@@ -205,15 +204,15 @@ xg, yg = xg[mask], yg[mask]
 # -
 
 # Parameters for the association process
-dt_kde = 0.5 # [s] Time resolution of the KDE
+dt_kde = 0.5  # [s] Time resolution of the KDE
 bin_width = 1
 # dt_kde = 0.25 # [s] Time resolution of the KDE (overlap)
 # bin_width = 1.5
-dt_tol = int(0.8 * fs) # [samples] Tolerance for the time index when removing picks
+dt_tol = int(0.8 * fs)  # [samples] Tolerance for the time index when removing picks
 n_shape_x = xg.shape[0]
 s_shape_x = xg.shape[0]
-dt_sel = 1.4 # [s] Selected time "distance" from the theoretical arrival time
-w_eval = 5 # [s] Width of the evaluation window for curvature estimation
+dt_sel = 1.4  # [s] Selected time "distance" from the theoretical arrival time
+w_eval = 5  # [s] Width of the evaluation window for curvature estimation
 rms_threshold = 0.5
 # Set the number of iterations for testing
 iterations = 15
@@ -241,21 +240,26 @@ s_delayed_picks_lf = s_idx_times_lf[None, :] - s_arr_tg[:, s_up_peaks_lf[0]]
 # +
 # Plot the arrival times for the grid
 print(n_arr_tg.shape)
-plt.figure(figsize=(20,8))
-plt.subplot(1,2,1)
-plt.title('North Cable')
+plt.figure(figsize=(20, 8))
+plt.subplot(1, 2, 1)
+plt.title("North Cable")
 for i in range(xg.shape[0]):
-            plt.plot(n_arr_tg[i, :], n_dist/1e3, ls='-', lw=1, color='tab:blue', alpha=0.1)
+    plt.plot(n_arr_tg[i, :], n_dist / 1e3, ls="-", lw=1, color="tab:blue", alpha=0.1)
 
-plt.subplot(1,2,2)
-plt.title('South Cable')
+plt.subplot(1, 2, 2)
+plt.title("South Cable")
 for i in range(xg.shape[0]):
-            plt.plot(s_arr_tg[i, :], s_dist/1e3, ls='-', lw=1, color='tab:blue', alpha=0.1)
+    plt.plot(s_arr_tg[i, :], s_dist / 1e3, ls="-", lw=1, color="tab:blue", alpha=0.1)
 plt.show()
 
 # +
 # Find the global min and max for KDE time range
-all_delayed_picks = [n_delayed_picks_hf, n_delayed_picks_lf, s_delayed_picks_hf, s_delayed_picks_lf]
+all_delayed_picks = [
+    n_delayed_picks_hf,
+    n_delayed_picks_lf,
+    s_delayed_picks_hf,
+    s_delayed_picks_lf,
+]
 global_min = min(np.min(arr) for arr in all_delayed_picks)
 global_max = max(np.max(arr) for arr in all_delayed_picks)
 
@@ -265,28 +269,60 @@ t_kde = np.linspace(global_min, global_max, Nkde)
 
 # Compute KDEs in parallel for each type
 # North high frequency
-n_kde_hf = np.array(Parallel(n_jobs=-1)(
-    delayed(dw.assoc.fast_kde_rect)(n_delayed_picks_hf[i, :], t_kde, overlap=dt_kde, bin_width=bin_width, weights=nSNRhf) 
-    for i in range(n_shape_x)
-))
+n_kde_hf = np.array(
+    Parallel(n_jobs=-1)(
+        delayed(dw.assoc.fast_kde_rect)(
+            n_delayed_picks_hf[i, :],
+            t_kde,
+            overlap=dt_kde,
+            bin_width=bin_width,
+            weights=nSNRhf,
+        )
+        for i in range(n_shape_x)
+    )
+)
 
 # North low frequency
-n_kde_lf = np.array(Parallel(n_jobs=-1)(
-    delayed(dw.assoc.fast_kde_rect)(n_delayed_picks_lf[i, :], t_kde, overlap=dt_kde, bin_width=bin_width, weights=nSNRlf)
-    for i in range(n_shape_x)
-))
+n_kde_lf = np.array(
+    Parallel(n_jobs=-1)(
+        delayed(dw.assoc.fast_kde_rect)(
+            n_delayed_picks_lf[i, :],
+            t_kde,
+            overlap=dt_kde,
+            bin_width=bin_width,
+            weights=nSNRlf,
+        )
+        for i in range(n_shape_x)
+    )
+)
 
 # South high frequency
-s_kde_hf = np.array(Parallel(n_jobs=-1)(
-    delayed(dw.assoc.fast_kde_rect)(s_delayed_picks_hf[i, :], t_kde, overlap=dt_kde, bin_width=bin_width, weights=sSNRhf)
-    for i in range(s_shape_x)
-))
+s_kde_hf = np.array(
+    Parallel(n_jobs=-1)(
+        delayed(dw.assoc.fast_kde_rect)(
+            s_delayed_picks_hf[i, :],
+            t_kde,
+            overlap=dt_kde,
+            bin_width=bin_width,
+            weights=sSNRhf,
+        )
+        for i in range(s_shape_x)
+    )
+)
 
 # South low frequency
-s_kde_lf = np.array(Parallel(n_jobs=-1)(
-    delayed(dw.assoc.fast_kde_rect)(s_delayed_picks_lf[i, :], t_kde, overlap=dt_kde, bin_width=bin_width, weights=sSNRlf)
-    for i in range(s_shape_x)
-))
+s_kde_lf = np.array(
+    Parallel(n_jobs=-1)(
+        delayed(dw.assoc.fast_kde_rect)(
+            s_delayed_picks_lf[i, :],
+            t_kde,
+            overlap=dt_kde,
+            bin_width=bin_width,
+            weights=sSNRlf,
+        )
+        for i in range(s_shape_x)
+    )
+)
 
 # +
 n_heatmap = np.max(n_kde_hf, axis=1)
@@ -304,13 +340,13 @@ sum_lf = n_kde_lf + s_kde_lf
 
 mu = np.mean(sum_kde)
 mu_t = np.mean(sum_kde, axis=0)
-mu_sp= np.mean(sum_kde, axis=1)
+mu_sp = np.mean(sum_kde, axis=1)
 
 sigma = np.std(sum_kde)
 sigma_t = np.std(sum_kde, axis=0)
 sigma_sp = np.std(sum_kde, axis=1)
 
-# Stats 
+# Stats
 mu_north = np.mean(sum_north)
 mu_south = np.mean(sum_south)
 mu_north_t = np.mean(sum_north, axis=0)
@@ -335,7 +371,7 @@ print(sum_kde.shape)
 
 # +
 # Same but sorting by call type
-plt.rcParams.update({'font.size': 16})
+plt.rcParams.update({"font.size": 16})
 # Shared parameters for north and south plots
 # Create bins for the amplitude values
 n_bins = 16
@@ -343,26 +379,37 @@ amp_min, amp_max = np.min(sum_hf), np.max(sum_hf)
 vmin = 0.001
 vmax = 1
 vdelta = 0.05
-beta = 3 # Number of stds 
+beta = 3  # Number of stds
 
 
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20,8), sharex=True, sharey=True, tight_layout=True)
-ax1.set_title('HF calls')
+fig, (ax1, ax2) = plt.subplots(
+    1, 2, figsize=(20, 8), sharex=True, sharey=True, tight_layout=True
+)
+ax1.set_title("HF calls")
 # Create bins for the amplitude values
-cbarticks = np.arange(vmin, vmax-vmin+vdelta, vdelta)
+cbarticks = np.arange(vmin, vmax - vmin + vdelta, vdelta)
 amp_bins = np.linspace(amp_min, amp_max, n_bins)
 
 # Create 2D histogram (PDF) for each time point
-pdf_hf = np.zeros((len(amp_bins)-1, len(t_kde)))
+pdf_hf = np.zeros((len(amp_bins) - 1, len(t_kde)))
 
 for i, t in enumerate(t_kde):
     hist, _ = np.histogram(sum_hf[:, i], bins=amp_bins, density=True)
-    pdf_hf[:, i] = hist / np.sum(hist)  # Normalize the histogram to get Normalized spatial density
+    pdf_hf[:, i] = hist / np.sum(
+        hist
+    )  # Normalize the histogram to get Normalized spatial density
 
 # Create contour plot of the PDF
 T_mesh, A_mesh = np.meshgrid(t_kde, amp_bins[:-1])
 levels = np.linspace(0, np.max(pdf_hf), 50)
-im = ax1.contourf(T_mesh, A_mesh, pdf_hf, levels=cbarticks, cmap='viridis', norm=colors.Normalize(vmin=vmin, vmax=vmax))
+im = ax1.contourf(
+    T_mesh,
+    A_mesh,
+    pdf_hf,
+    levels=cbarticks,
+    cmap="viridis",
+    norm=colors.Normalize(vmin=vmin, vmax=vmax),
+)
 # fig.colorbar(im, label='Normalized spatial density', ax=ax1)
 
 # Plot percentiles over the contours
@@ -370,44 +417,87 @@ p5_hf = np.percentile(sum_hf, 5, axis=0)
 p50_hf = np.percentile(sum_hf, 50, axis=0)  # median
 p95_hf = np.percentile(sum_hf, 95, axis=0)
 
-ax1.plot(t_kde, p50_hf, color='black', linewidth=2, label='50%')
-ax1.plot(t_kde, p5_hf, color='black', linewidth=1, label='5%')
-ax1.plot(t_kde, p95_hf, color='black', linewidth=1, label='95%')
-ax1.plot(t_kde, mu_hf_t, color='red', label='$\\mu_t$')
-ax1.hlines(mu_hf, t_kde[0], t_kde[-1], color='grey', linestyle='--', linewidth=3, label='$\\mu$')
-ax1.hlines(mu_hf + beta * sigma_hf, t_kde[0], t_kde[-1], color='green', linestyle='--', linewidth=3, label=f'$\\mu + {beta} \\sigma$')
-ax1.hlines(mu, t_kde[0], t_kde[-1], color='pink', linestyle='--', linewidth=3, label='$\\mu_g$')
-ax1.set_xlabel('Time [s]')
-ax1.set_ylabel('Occurrences [-]')
+ax1.plot(t_kde, p50_hf, color="black", linewidth=2, label="50%")
+ax1.plot(t_kde, p5_hf, color="black", linewidth=1, label="5%")
+ax1.plot(t_kde, p95_hf, color="black", linewidth=1, label="95%")
+ax1.plot(t_kde, mu_hf_t, color="red", label="$\\mu_t$")
+ax1.hlines(
+    mu_hf,
+    t_kde[0],
+    t_kde[-1],
+    color="grey",
+    linestyle="--",
+    linewidth=3,
+    label="$\\mu$",
+)
+ax1.hlines(
+    mu_hf + beta * sigma_hf,
+    t_kde[0],
+    t_kde[-1],
+    color="green",
+    linestyle="--",
+    linewidth=3,
+    label=f"$\\mu + {beta} \\sigma$",
+)
+ax1.hlines(
+    mu, t_kde[0], t_kde[-1], color="pink", linestyle="--", linewidth=3, label="$\\mu_g$"
+)
+ax1.set_xlabel("Time [s]")
+ax1.set_ylabel("Occurrences [-]")
 ax1.legend()
 
-ax2.set_title('LF Calls')
+ax2.set_title("LF Calls")
 # Create bins for the amplitude values
 amp_min, amp_max = np.min(sum_lf), np.max(sum_lf)
 amp_bins = np.linspace(amp_min, amp_max, n_bins)
 # Create 2D histogram (PDF) for each time point
-pdf_lf = np.zeros((len(amp_bins)-1, len(t_kde)))
+pdf_lf = np.zeros((len(amp_bins) - 1, len(t_kde)))
 for i, t in enumerate(t_kde):
     hist, _ = np.histogram(sum_lf[:, i], bins=amp_bins, density=True)
     pdf_lf[:, i] = hist / np.sum(hist)  # Normalize the histogram to get PDF
 # Create contour plot of the PDF
 T_mesh, A_mesh = np.meshgrid(t_kde, amp_bins[:-1])
 levels = np.linspace(0, np.max(pdf_lf), 50)
-im = ax2.contourf(T_mesh, A_mesh, pdf_lf, levels=cbarticks, cmap='viridis', norm=colors.Normalize(vmin=vmin, vmax=vmax))
-fig.colorbar(im, label='Normalized spatial density', ax=ax2)
+im = ax2.contourf(
+    T_mesh,
+    A_mesh,
+    pdf_lf,
+    levels=cbarticks,
+    cmap="viridis",
+    norm=colors.Normalize(vmin=vmin, vmax=vmax),
+)
+fig.colorbar(im, label="Normalized spatial density", ax=ax2)
 
 # Plot percentiles over the contours
 p5_lf = np.percentile(sum_lf, 5, axis=0)
 p50_lf = np.percentile(sum_lf, 50, axis=0)
 p95_lf = np.percentile(sum_lf, 95, axis=0)
-ax2.plot(t_kde, p50_lf, color='black', linewidth=2, label='50%')
-ax2.plot(t_kde, p5_lf, color='black', linewidth=1, label='5%')
-ax2.plot(t_kde, p95_lf, color='black', linewidth=1, label='95%')
-ax2.plot(t_kde, mu_lf_t, color='red', label='$\\mu_t$')
-ax2.hlines(mu_lf, t_kde[0], t_kde[-1], color='grey', linestyle='--', linewidth=3, label='$\\mu$')
-ax2.hlines(mu_lf + beta * sigma_lf, t_kde[0], t_kde[-1], color='green', linestyle='--', linewidth=3, label=f'$\\mu + {beta} \\sigma$')
-ax2.hlines(mu, t_kde[0], t_kde[-1], color='pink', linestyle='--', linewidth=3, label='$\\mu_g$')
-ax2.set_xlabel('Time [s]')
+ax2.plot(t_kde, p50_lf, color="black", linewidth=2, label="50%")
+ax2.plot(t_kde, p5_lf, color="black", linewidth=1, label="5%")
+ax2.plot(t_kde, p95_lf, color="black", linewidth=1, label="95%")
+ax2.plot(t_kde, mu_lf_t, color="red", label="$\\mu_t$")
+ax2.hlines(
+    mu_lf,
+    t_kde[0],
+    t_kde[-1],
+    color="grey",
+    linestyle="--",
+    linewidth=3,
+    label="$\\mu$",
+)
+ax2.hlines(
+    mu_lf + beta * sigma_lf,
+    t_kde[0],
+    t_kde[-1],
+    color="green",
+    linestyle="--",
+    linewidth=3,
+    label=f"$\\mu + {beta} \\sigma$",
+)
+ax2.hlines(
+    mu, t_kde[0], t_kde[-1], color="pink", linestyle="--", linewidth=3, label="$\\mu_g$"
+)
+ax2.set_xlabel("Time [s]")
 # ax2.set_ylabel('Occurrences [-]')
 ax2.set_xlim(t_kde[0], t_kde[-1])
 ax2.set_ylim((0, 0.8 * max(np.max(sum_hf), np.max(sum_lf))))
@@ -415,11 +505,19 @@ ax2.legend()
 plt.show()
 # -
 
-n_distances = np.sqrt((xg[:, None] - n_cable_pos[:, 0])**2 + (yg[:, None] - n_cable_pos[:, 1])**2 + 200*(zg - n_cable_pos[:, 2])**2)
-s_distances = np.sqrt((xg[:, None] - s_cable_pos[:, 0])**2 + (yg[:, None] - s_cable_pos[:, 1])**2 + 200*(zg - s_cable_pos[:, 2])**2)
+n_distances = np.sqrt(
+    (xg[:, None] - n_cable_pos[:, 0]) ** 2
+    + (yg[:, None] - n_cable_pos[:, 1]) ** 2
+    + 200 * (zg - n_cable_pos[:, 2]) ** 2
+)
+s_distances = np.sqrt(
+    (xg[:, None] - s_cable_pos[:, 0]) ** 2
+    + (yg[:, None] - s_cable_pos[:, 1]) ** 2
+    + 200 * (zg - s_cable_pos[:, 2]) ** 2
+)
 print(n_distances.shape, s_distances.shape)
 distances = n_distances.min(axis=1) + s_distances.min(axis=1)
-distances *= 0.5 # Average distances to both cables
+distances *= 0.5  # Average distances to both cables
 
 # ## Plot the Heatmap for the north cable
 
@@ -430,11 +528,13 @@ binary = np.ones_like(maxprod)
 
 threshold = np.percentile(maxsum, 40)  # keep top 3%
 binary[maxsum < threshold] = 0
-fig = dw.assoc.plot_kdesurf(df_north, df_south, bathy, x, y, xg, yg, mu_sp+3*sigma_sp)
+fig = dw.assoc.plot_kdesurf(
+    df_north, df_south, bathy, x, y, xg, yg, mu_sp + 3 * sigma_sp
+)
 # fig = dw.assoc.plot_kdesurf(df_north, df_south, bathy, x, y, xg, yg, distances)
 plt.show()
 
-print(f'ratio of points above the threshold: {np.sum(binary) / binary.size:.2f}')
+print(f"ratio of points above the threshold: {np.sum(binary) / binary.size:.2f}")
 
 # +
 # import numpy as np
@@ -465,11 +565,11 @@ print(f'ratio of points above the threshold: {np.sum(binary) / binary.size:.2f}'
 
 # # Create LightSource for bathymetry relief
 # ls = LightSource(azdeg=315, altdeg=45)
-# rgb = ls.shade(bathy, cmap=custom_cmap, vert_exag=0.1, 
+# rgb = ls.shade(bathy, cmap=custom_cmap, vert_exag=0.1,
 #                blend_mode='overlay', vmin=np.min(bathy), vmax=0)
 
 # # Plot the bathymetry relief in background
-# plot = ax.imshow(rgb, extent=extent, aspect='equal', origin='lower', 
+# plot = ax.imshow(rgb, extent=extent, aspect='equal', origin='lower',
 #                  vmin=np.min(bathy), vmax=0)
 
 # # Plot the cable location in 2D
@@ -490,13 +590,13 @@ print(f'ratio of points above the threshold: {np.sum(binary) / binary.size:.2f}'
 # n_kde_hf = n_kde_hf / np.max(n_kde_hf)
 # s_kde_hf = s_kde_hf / np.max(s_kde_hf)
 # # Initialize contour
-# contour = ax.tricontourf(xg, yg, n_kde_hf[:, 0] + s_kde_hf[:, 0], 
+# contour = ax.tricontourf(xg, yg, n_kde_hf[:, 0] + s_kde_hf[:, 0],
 #                          levels=20, cmap='hot', alpha=0.5)
 
 # # Update function
 # def update(frame):
 #     # Update contour
-#     contour = ax.tricontourf(xg, yg, n_kde_hf[:, frame] + s_kde_hf[:, frame], 
+#     contour = ax.tricontourf(xg, yg, n_kde_hf[:, frame] + s_kde_hf[:, frame],
 #                              levels=20, cmap='hot', alpha=0.5)
 #     return contour
 

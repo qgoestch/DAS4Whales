@@ -8,14 +8,12 @@ Date: 2024
 """
 
 # File that wrap up functions in dsp.py in a dask way
-import h5py
-import wget
 import os
-import numpy as np
-import dask.array as da
 from datetime import datetime
 
-import das4whales as dw
+import dask.array as da
+import h5py
+import numpy as np
 
 
 def load_das_data(filename, selected_channels, metadata):
@@ -49,13 +47,13 @@ def load_das_data(filename, selected_channels, metadata):
 
     """
     if not os.path.exists(filename):
-        raise ValueError('File not found')
+        raise ValueError("File not found")
 
-    f = h5py.File(filename, 'r') # HDF5 file
-    d = f['Acquisition/Raw[0]/RawData']   # Pointer on on-disk array f
+    f = h5py.File(filename, "r")  # HDF5 file
+    d = f["Acquisition/Raw[0]/RawData"]  # Pointer on on-disk array f
 
     # UTC Time vector for naming
-    raw_data_time = f['Acquisition/Raw[0]/RawDataTime']
+    raw_data_time = f["Acquisition/Raw[0]/RawDataTime"]
 
     # For future save
     file_begin_time_utc = datetime.utcfromtimestamp(raw_data_time[0] * 1e-6)
@@ -66,12 +64,19 @@ def load_das_data(filename, selected_channels, metadata):
 
     # Define new time and distance axes
     tx = np.arange(nns) / metadata["fs"]
-    dist = (np.arange(nnx)[selected_channels[0]:selected_channels[1]:selected_channels[2]]) * metadata["dx"] 
+    dist = (
+        (
+            np.arange(nnx)[
+                selected_channels[0] : selected_channels[1] : selected_channels[2]
+            ]
+        )
+        * metadata["dx"]
+    )
     return d, tx, dist, file_begin_time_utc
 
 
 def raw2strain(tr, metadata, selected_channels):
-    """Convert a daskarray filled of int32 to a 
+    """Convert a daskarray filled of int32 to a
 
     Parameters
     ----------
@@ -86,8 +91,10 @@ def raw2strain(tr, metadata, selected_channels):
     -------
     dask.array.core.Array
         daskarray filled with scaled float64
-    """    
-    trace = tr[selected_channels[0]:selected_channels[1]:selected_channels[2], :].astype(np.float64)
-    trace -= da.mean(trace, axis=1, keepdims=True) #demeaning using dask mean function
+    """
+    trace = tr[
+        selected_channels[0] : selected_channels[1] : selected_channels[2], :
+    ].astype(np.float64)
+    trace -= da.mean(trace, axis=1, keepdims=True)  # demeaning using dask mean function
     trace *= metadata["scale_factor"]
     return trace

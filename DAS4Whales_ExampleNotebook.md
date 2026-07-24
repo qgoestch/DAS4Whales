@@ -62,9 +62,11 @@ Experiment information can be found on the [OOI website](https://oceanobservator
 
 ```python
 # The dataset of this example is constituted of 60s time series along  66 km of cable
-url = 'http://piweb.ooirsn.uw.edu/das/data/Optasense/NorthCable/TransmitFiber/' \
-        'North-C1-LR-P1kHz-GL50m-Sp2m-FS200Hz_2021-11-03T15_06_51-0700/'\
-        'North-C1-LR-P1kHz-GL50m-Sp2m-FS200Hz_2021-11-04T020002Z.h5'
+url = (
+    "http://piweb.ooirsn.uw.edu/das/data/Optasense/NorthCable/TransmitFiber/"
+    "North-C1-LR-P1kHz-GL50m-Sp2m-FS200Hz_2021-11-03T15_06_51-0700/"
+    "North-C1-LR-P1kHz-GL50m-Sp2m-FS200Hz_2021-11-04T020002Z.h5"
+)
 
 filepath, filename = dw.data_handle.dl_file(url)
 ```
@@ -82,16 +84,23 @@ Note: the metadata reading function das4whales.data_handle.get_acquisition_param
 ```python
 # Read HDF5 files and access metadata
 # Get the acquisition parameters for the data folder and store them in a dictionary
-metadata = dw.data_handle.get_acquisition_parameters(filepath, interrogator='optasense')
-fs, dx, nx, ns, gauge_length, scale_factor = metadata["fs"], metadata["dx"], metadata["nx"], metadata["ns"], metadata["GL"], metadata["scale_factor"]
+metadata = dw.data_handle.get_acquisition_parameters(filepath, interrogator="optasense")
+fs, dx, nx, ns, gauge_length, scale_factor = (
+    metadata["fs"],
+    metadata["dx"],
+    metadata["nx"],
+    metadata["ns"],
+    metadata["GL"],
+    metadata["scale_factor"],
+)
 
-print(f'Sampling frequency: {metadata["fs"]} Hz')
-print(f'Channel spacing: {metadata["dx"]} m')
-print(f'Gauge length: {metadata["GL"]} m')
-print(f'File duration: {metadata["ns"] / metadata["fs"]} s')
-print(f'Cable max distance: {metadata["nx"] * metadata["dx"]/1e3:.1f} km')
-print(f'Number of channels: {metadata["nx"]}')
-print(f'Number of time samples: {metadata["ns"]}')
+print(f"Sampling frequency: {metadata['fs']} Hz")
+print(f"Channel spacing: {metadata['dx']} m")
+print(f"Gauge length: {metadata['GL']} m")
+print(f"File duration: {metadata['ns'] / metadata['fs']} s")
+print(f"Cable max distance: {metadata['nx'] * metadata['dx'] / 1e3:.1f} km")
+print(f"Number of channels: {metadata['nx']}")
+print(f"Number of time samples: {metadata['ns']}")
 ```
 
     Sampling frequency: 200.0 Hz
@@ -112,21 +121,33 @@ The following allows to re-sample the data spatially and select a region of inte
 
 
 ```python
-selected_channels_m = [20000, 65000, 10]  # list of values in meters corresponding to the starting,
-                                          # ending and step wanted channels along the FO Cable
-                                          # selected_channels_m = [ChannelStart_m, ChannelStop_m, ChannelStep_m]
-                                          # in meters
+selected_channels_m = [
+    20000,
+    65000,
+    10,
+]  # list of values in meters corresponding to the starting,
+# ending and step wanted channels along the FO Cable
+# selected_channels_m = [ChannelStart_m, ChannelStop_m, ChannelStep_m]
+# in meters
 
-selected_channels = [int(selected_channels_m // dx) for selected_channels_m in
-                     selected_channels_m]  # list of values in channel number (spatial sample) corresponding to the starting, ending and step wanted
-                                           # channels along the FO Cable
-                                           # selected_channels = [ChannelStart, ChannelStop, ChannelStep] in channel
-                                           # numbers
+selected_channels = [
+    int(selected_channels_m // dx) for selected_channels_m in selected_channels_m
+]  # list of values in channel number (spatial sample) corresponding to the starting, ending and step wanted
+# channels along the FO Cable
+# selected_channels = [ChannelStart, ChannelStop, ChannelStep] in channel
+# numbers
 
-print('Begin channel #:', selected_channels[0], 
-      ', End channel #: ',selected_channels[1], 
-      ', step: ',selected_channels[2], 
-      'equivalent to ',selected_channels[2]*dx,' m')
+print(
+    "Begin channel #:",
+    selected_channels[0],
+    ", End channel #: ",
+    selected_channels[1],
+    ", step: ",
+    selected_channels[2],
+    "equivalent to ",
+    selected_channels[2] * dx,
+    " m",
+)
 ```
 
     Begin channel #: 9794 , End channel #:  31833 , step:  4 equivalent to  8.167618751525879  m
@@ -143,10 +164,10 @@ Here the filters are set to preserve fin whale 20-Hz song, present in most of th
 
 ```python
 # Create band-pass filter for the TX plots
-sos_bpfilter = dw.dsp.butterworth_filter([5, [10, 30], 'bp'], fs)
+sos_bpfilter = dw.dsp.butterworth_filter([5, [10, 30], "bp"], fs)
 
 # Create high-pass filter
-sos_hpfilter = dw.dsp.butterworth_filter([2, 5, 'hp'], fs)
+sos_hpfilter = dw.dsp.butterworth_filter([2, 5, "hp"], fs)
 ```
 
 ### Load raw DAS data
@@ -156,7 +177,9 @@ Loads the data using the pre-defined selected channels.
 
 ```python
 # Load DAS data
-tr, time, dist, fileBeginTimeUTC = dw.data_handle.load_das_data(filepath, selected_channels, metadata)
+tr, time, dist, fileBeginTimeUTC = dw.data_handle.load_das_data(
+    filepath, selected_channels, metadata
+)
 ```
 
 ### Apply band-pass filter and corresponding t-x plot
@@ -168,7 +191,15 @@ tr, time, dist, fileBeginTimeUTC = dw.data_handle.load_das_data(filepath, select
 trf = sp.sosfiltfilt(sos_bpfilter, tr, axis=1)
 
 # Plot
-dw.plot.plot_tx(sp.hilbert(trf, axis=1), time, dist, fileBeginTimeUTC, fig_size=(12, 10), v_min=0, v_max=0.4)
+dw.plot.plot_tx(
+    sp.hilbert(trf, axis=1),
+    time,
+    dist,
+    fileBeginTimeUTC,
+    fig_size=(12, 10),
+    v_min=0,
+    v_max=0.4,
+)
 ```
 
 
@@ -189,14 +220,16 @@ The spatio-temporal DAS strain data is transformed in the frequency-wavenumber (
 ```python
 # Create the f-k filter
 
-fk_params_s = {
-    'c_min': 1400.,
-    'c_max': 3500.,
-    'fmin': 10.,
-    'fmax': 30.
-}
+fk_params_s = {"c_min": 1400.0, "c_max": 3500.0, "fmin": 10.0, "fmax": 30.0}
 
-fk_filter = dw.dsp.hybrid_ninf_gs_filter_design((tr.shape[0],tr.shape[1]), selected_channels, dx, fs, fk_params_s, display_filter=True)
+fk_filter = dw.dsp.hybrid_ninf_gs_filter_design(
+    (tr.shape[0], tr.shape[1]),
+    selected_channels,
+    dx,
+    fs,
+    fk_params_s,
+    display_filter=True,
+)
 
 # Print the compression ratio given by the sparse matrix usage
 dw.tools.disp_comprate(fk_filter)
@@ -208,7 +241,15 @@ trf_fk = dw.dsp.fk_filter_sparsefilt(trf, fk_filter, tapering=True)
 
 # To plot the envelope use sp.hilbert(trf_fk, axis=1)
 # Plot
-dw.plot.plot_tx(sp.hilbert(trf_fk, axis=1), time, dist, fileBeginTimeUTC, fig_size=(12, 10), v_min=0, v_max=0.4)
+dw.plot.plot_tx(
+    sp.hilbert(trf_fk, axis=1),
+    time,
+    dist,
+    fileBeginTimeUTC,
+    fig_size=(12, 10),
+    v_min=0,
+    v_max=0.4,
+)
 ```
 
 
@@ -233,9 +274,19 @@ In the following example, the FFT is applied to each channel of 2-s clips of the
 
 ```python
 # Spatio-spectral plot
-dw.plot.plot_fx(trf_fk, dist, fs, title_time_info=fileBeginTimeUTC, win_s=2,
-                nfft=512,  f_min=10, f_max=35, fig_size=(25, 10), 
-                v_min = 0, v_max = 0.1)
+dw.plot.plot_fx(
+    trf_fk,
+    dist,
+    fs,
+    title_time_info=fileBeginTimeUTC,
+    win_s=2,
+    nfft=512,
+    f_min=10,
+    f_max=35,
+    fig_size=(25, 10),
+    v_min=0,
+    v_max=0.1,
+)
 ```
 
 
@@ -251,14 +302,13 @@ dw.plot.plot_fx(trf_fk, dist, fs, title_time_info=fileBeginTimeUTC, win_s=2,
 from IPython.display import Audio, display
 
 # read one channel only as audio
-selected_chan = 28000 # (m)
+selected_chan = 28000  # (m)
 idx = (np.abs(dist - selected_chan)).argmin()
 
 # Spectrogram
-p,tt,ff = dw.dsp.get_spectrogram(trf_fk[idx,:], fs, nfft=256, overlap_pct=0.95)
-dw.plot.plot_spectrogram(p, tt,ff, f_min = 0, f_max = 50, v_min=-50)
-display(Audio(data=trf_fk[idx,:], rate=fs*5))
-
+p, tt, ff = dw.dsp.get_spectrogram(trf_fk[idx, :], fs, nfft=256, overlap_pct=0.95)
+dw.plot.plot_spectrogram(p, tt, ff, f_min=0, f_max=50, v_min=-50)
+display(Audio(data=trf_fk[idx, :], rate=fs * 5))
 ```
 
 
@@ -279,14 +329,13 @@ display(Audio(data=trf_fk[idx,:], rate=fs*5))
 
 ```python
 # read one channel only as audio
-selected_chan = 50000 # (m)
+selected_chan = 50000  # (m)
 idx = (np.abs(dist - selected_chan)).argmin()
 
 # Spectrogram
-p,tt,ff = dw.dsp.get_spectrogram(trf_fk[idx,:], fs, nfft=256, overlap_pct=0.9)
-dw.plot.plot_spectrogram(p, tt,ff, f_min = 0, f_max = 50, v_min=-30)
-Audio(data=trf_fk[idx,:], rate=fs*5)
-
+p, tt, ff = dw.dsp.get_spectrogram(trf_fk[idx, :], fs, nfft=256, overlap_pct=0.9)
+dw.plot.plot_spectrogram(p, tt, ff, f_min=0, f_max=50, v_min=-30)
+Audio(data=trf_fk[idx, :], rate=fs * 5)
 ```
 
 

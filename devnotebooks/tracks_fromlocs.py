@@ -268,7 +268,7 @@ def generate_hourly_plots(
                 label=legend_label,
             )
 
-        levels = [-1500, -700, -550, -150, -50]
+        levels = [-1500, -700, -550, -450, -150, -50]
         if bathy is not None and "bathy" in locals() and bathy is not None:
             try:
                 cnt = ax.contour(
@@ -286,7 +286,7 @@ def generate_hourly_plots(
         # Pacific City reference point
         ax.annotate(
             "Pacific City",
-            (utm_x_pc, utm_y_pc),
+            (utm_x_pc / 1000.0, utm_y_pc / 1000.0),
             textcoords="offset points",
             xytext=(15, 20),
             ha="center",

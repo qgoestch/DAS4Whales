@@ -6,9 +6,9 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.18.1
+#       jupytext_version: 1.19.5
 #   kernelspec:
-#     display_name: venv (3.12.13.final.0)
+#     display_name: DAS4Whales (3.13.5.final.0)
 #     language: python
 #     name: python3
 # ---
@@ -81,6 +81,15 @@ def generate_hourly_plots(csv_path: str, north_csv: str, south_csv: str, bathy_f
         minx, maxx = df_all['x_local'].min(), df_all['x_local'].max()
         miny, maxy = df_all['y_local'].min(), df_all['y_local'].max()
         extent = [maxx/1000.0, minx/1000.0, miny/1000.0, maxy/1000.0]
+
+    # Pacific city reference point for plotting
+
+    # Convert Pacific City latitude and longitude to UTM coordinates 
+    lat_pc, lon_pc = 45.201801, -123.960861 # Pacific City lat/lon
+    utm_x_pc, utm_y_pc = dw.map.latlon_to_utm(lon_pc, lat_pc)
+
+    # Adjust Pacific City's UTM coordinates to the shifted coordinate system (relative to utm_xf, utm_yf)
+    utm_x_pc, utm_y_pc = utm_xf - utm_x_pc, utm_y_pc - utm_y0
 
     # Precompute kilometers conversions and prepare global arrays for proximity searches
     df_all = df_all.copy()
@@ -225,15 +234,22 @@ def generate_hourly_plots(csv_path: str, north_csv: str, south_csv: str, bathy_f
                       edgecolors='k',
                       label=legend_label)
 
-        levels = [-1500, -1000, -600, -250, -80]
+        levels = [-1500, -700, -550, -150, -50]
         if bathy is not None and 'bathy' in locals() and bathy is not None:
             try:
                 cnt = ax.contour(bathy, levels=levels,
-                                colors='k', linestyles='--',
+                                colors='k', linestyles='-.',
                                 extent=[e/1000.0 for e in extent], alpha=0.6)
                 ax.clabel(cnt, fmt='%d m', inline=True)
             except Exception:
                 pass
+
+        # Pacific City reference point
+        ax.annotate('Pacific City', (utm_x_pc, utm_y_pc), 
+                    textcoords='offset points', xytext=(15, 20), 
+                    ha='center', color='k',
+                    bbox=dict(boxstyle='round,pad=0.1', facecolor='white', alpha=0.8))
+        ax.scatter(utm_x_pc/1000.0, utm_y_pc/1000.0, marker='s', color='tab:red', s=100, edgecolor='k')
 
         stats_text = f"Number of calls: {len(df_win)}\nMedian $\\eta_{{RMS}}$: {median_rms:.2f}s\nMedian $\\delta$x: {median_deltax:.2f}m" if not np.isnan(median_rms) and not np.isnan(median_deltax) else "Statistics not available"
         ax.text(0.02, 0.9, stats_text, transform=ax.transAxes, fontsize=14,
@@ -254,8 +270,8 @@ def generate_hourly_plots(csv_path: str, north_csv: str, south_csv: str, bathy_f
 
         # out_path = Path(out_dir) / f"tracks_{t0.strftime('%Y%m%d_%H%M')}.pdf"
         # fig.savefig(out_path, format='pdf', bbox_inches='tight', transparent=True)
-        out_path = Path(out_dir) / f"tracks_{t0.strftime('%Y%m%d_%H%M')}.png"
-        fig.savefig(out_path, format='png', bbox_inches='tight', transparent=True, dpi=200)
+        out_path = Path(out_dir) / f"tracks_{t0.strftime('%Y%m%d_%H%M')}.pdf"
+        fig.savefig(str(out_path), format='pdf', bbox_inches='tight', transparent=True, dpi=200)
         plt.close(fig)
 
 

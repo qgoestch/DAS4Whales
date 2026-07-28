@@ -8,9 +8,8 @@ Date: 2025
 
 from __future__ import annotations
 
-from typing import Dict, List, Tuple, Union, Optional, Any
-
 import numpy as np
+
 
 def to_rad(degree: float) -> float:
     """
@@ -28,6 +27,7 @@ def to_rad(degree: float) -> float:
     """
     return degree * np.pi / 180
 
+
 def degree_to_km_at_latitude(latitude: float) -> float:
     """
     Convert degrees of longitude to kilometers at a specific latitude.
@@ -43,6 +43,7 @@ def degree_to_km_at_latitude(latitude: float) -> float:
         The distance in kilometers corresponding to one degree of longitude at the specified latitude.
     """
     return 111.32 * np.cos(np.radians(latitude))
+
 
 def km_to_degree_at_latitude(km, latitude):
     """
@@ -61,6 +62,7 @@ def km_to_degree_at_latitude(km, latitude):
         The equivalent distance in degrees of longitude at the specified latitude.
     """
     return km / (111.32 * np.cos(np.radians(latitude)))
+
 
 def calc_dist_lat_lon(position_1, position_2):
     """
@@ -92,28 +94,30 @@ def calc_dist_lat_lon(position_1, position_2):
     R = 6373.0  # Approximate radius of the Earth in kilometers
 
     # Check if position_2 contains lists or single values
-    if isinstance(position_2['lat'], (list, np.ndarray)):
-        arc = np.zeros(len(position_2['lat']))
+    if isinstance(position_2["lat"], (list, np.ndarray)):
+        arc = np.zeros(len(position_2["lat"]))
 
-        for dd in range(len(position_2['lat'])):
-            dlon = to_rad(position_2['lon'][dd]) - to_rad(position_1['lon'])
-            dlat = to_rad(position_2['lat'][dd]) - to_rad(position_1['lat'])
-            a = (np.sin(dlat / 2)) ** 2 + np.cos(to_rad(position_1['lat'])) * np.cos(
-                to_rad(position_2['lat'][dd])) * (
-                    np.sin(dlon / 2)) ** 2
+        for dd in range(len(position_2["lat"])):
+            dlon = to_rad(position_2["lon"][dd]) - to_rad(position_1["lon"])
+            dlat = to_rad(position_2["lat"][dd]) - to_rad(position_1["lat"])
+            a = (np.sin(dlat / 2)) ** 2 + np.cos(to_rad(position_1["lat"])) * np.cos(
+                to_rad(position_2["lat"][dd])
+            ) * (np.sin(dlon / 2)) ** 2
             arc[dd] = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
 
         distance = R * arc * 1000  # Convert to meters
     else:
         # If position_2 contains single values
-        dlon = to_rad(position_2['lon']) - to_rad(position_1['lon'])
-        dlat = to_rad(position_2['lat']) - to_rad(position_1['lat'])
-        a = (np.sin(dlat / 2)) ** 2 + np.cos(to_rad(position_1['lat'])) * np.cos(to_rad(position_2['lat'])) * (
-            np.sin(dlon / 2)) ** 2
+        dlon = to_rad(position_2["lon"]) - to_rad(position_1["lon"])
+        dlat = to_rad(position_2["lat"]) - to_rad(position_1["lat"])
+        a = (np.sin(dlat / 2)) ** 2 + np.cos(to_rad(position_1["lat"])) * np.cos(
+            to_rad(position_2["lat"])
+        ) * (np.sin(dlon / 2)) ** 2
         arc = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
         distance = R * arc * 1000  # Convert to meters
 
     return distance
+
 
 def calc_das_section_bearing(lat1, lon1, lat2, lon2):
     """
@@ -149,7 +153,9 @@ def calc_das_section_bearing(lat1, lon1, lat2, lon2):
 
     # Calculate the bearing
     x = np.sin(delta_lon) * np.cos(lat2_rad)
-    y = np.cos(lat1_rad) * np.sin(lat2_rad) - (np.sin(lat1_rad) * np.cos(lat2_rad) * np.cos(delta_lon))
+    y = np.cos(lat1_rad) * np.sin(lat2_rad) - (
+        np.sin(lat1_rad) * np.cos(lat2_rad) * np.cos(delta_lon)
+    )
     initial_bearing = np.arctan2(x, y)
 
     # Convert from radians to degrees
@@ -160,26 +166,27 @@ def calc_das_section_bearing(lat1, lon1, lat2, lon2):
 
     return das_bearing
 
+
 def calc_cumulative_dist(position):
     """
-     Calculate the cumulative distance along a path defined by latitude and longitude coordinates
-     using the Haversine formula.
+    Calculate the cumulative distance along a path defined by latitude and longitude coordinates
+    using the Haversine formula.
 
-     Parameters
-     ----------
-     position : pandas.DataFrame
-         A DataFrame containing at least 'lat' and 'lon' columns, representing latitude and longitude
-         coordinates respectively. Typically, this data is loaded from a CSV file with position data.
+    Parameters
+    ----------
+    position : pandas.DataFrame
+        A DataFrame containing at least 'lat' and 'lon' columns, representing latitude and longitude
+        coordinates respectively. Typically, this data is loaded from a CSV file with position data.
 
-     Returns
-     -------
-     dist : numpy.ndarray
-         An array of cumulative distances (in meters), where each element represents the total distance
-         traveled up to that point along the path.
-     """
+    Returns
+    -------
+    dist : numpy.ndarray
+        An array of cumulative distances (in meters), where each element represents the total distance
+        traveled up to that point along the path.
+    """
 
     # Extract latitude, longitude, and depth
-    lon = position['lat'].values
+    lon = position["lat"].values
 
     # Get cumulative distance
     dist = np.zeros_like(lon)
@@ -190,6 +197,7 @@ def calc_cumulative_dist(position):
         dist[ind] = dist[ind - 1] + local_dist
 
     return dist
+
 
 def calc_source_position_lat_lon(lat_ref, lon_ref, distance_m, bearing, side):
     """
@@ -222,11 +230,11 @@ def calc_source_position_lat_lon(lat_ref, lon_ref, distance_m, bearing, side):
     lon1 = np.radians(lon_ref)
 
     # Adjust the bearing by 90 degrees depending on the side (right or left)
-    if side == 'right':
+    if side == "right":
         bearing_perp = (bearing + 90) % 360
-    elif side == 'left':
+    elif side == "left":
         bearing_perp = (bearing - 90) % 360
-    elif side == 'either':
+    elif side == "either":
         bearing_perp = (bearing + 90) % 360
     else:
         raise ValueError(f"Side must be either 'right' or 'left' - here {side}")
@@ -238,16 +246,18 @@ def calc_source_position_lat_lon(lat_ref, lon_ref, distance_m, bearing, side):
     d_by_R = distance_m / R
 
     # Calculate the new latitude using the Haversine formula
-    lat2 = np.arcsin(np.sin(lat1) * np.cos(d_by_R) + np.cos(lat1) * np.sin(d_by_R) * np.cos(theta))
+    lat2 = np.arcsin(
+        np.sin(lat1) * np.cos(d_by_R) + np.cos(lat1) * np.sin(d_by_R) * np.cos(theta)
+    )
 
     # Calculate the new longitude
-    lon2 = lon1 + np.arctan2(np.sin(theta) * np.sin(d_by_R) * np.cos(lat1),
-                             np.cos(d_by_R) - np.sin(lat1) * np.sin(lat2))
+    lon2 = lon1 + np.arctan2(
+        np.sin(theta) * np.sin(d_by_R) * np.cos(lat1),
+        np.cos(d_by_R) - np.sin(lat1) * np.sin(lat2),
+    )
 
     # Convert the results from radians back to degrees
     lat2_deg = np.degrees(lat2)
     lon2_deg = np.degrees(lon2)
 
     return lat2_deg, lon2_deg
-
-

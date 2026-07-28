@@ -10,32 +10,45 @@ Date: 2024
 from __future__ import annotations
 
 import pickle
-from typing import Dict, List, Tuple, Union, Optional, Any
 
 import cmocean.cm as cmo
-import das4whales as dw
-import matplotlib.cm as cm
-import matplotlib.colors as colors
+import h5py
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy.signal as sp
 from joblib import Parallel, delayed
+from matplotlib import cm, colors
 from matplotlib.colors import LightSource
 from scipy.stats import gaussian_kde
 from sklearn.neighbors import KernelDensity
-import h5py
+
+import das4whales as dw
+
 ## Main association function --------------------------------------------
+
 
 def process_iteration(
     # Peak data
-    n_up_peaks_hf, n_up_peaks_lf, s_up_peaks_hf, s_up_peaks_lf,
-    nSNRhf, nSNRlf, sSNRhf, sSNRlf,
+    n_up_peaks_hf,
+    n_up_peaks_lf,
+    s_up_peaks_hf,
+    s_up_peaks_lf,
+    nSNRhf,
+    nSNRlf,
+    sSNRhf,
+    sSNRlf,
     # Grid data
-    n_arr_tg, s_arr_tg, n_shape_x, s_shape_x,
+    n_arr_tg,
+    s_arr_tg,
+    n_shape_x,
+    s_shape_x,
     # Cable positions
-    n_cable_pos, s_cable_pos, n_longi_offset, s_longi_offset,
+    n_cable_pos,
+    s_cable_pos,
+    n_longi_offset,
+    s_longi_offset,
     # Association lists
     association_lists,
     # Hyperbolas
@@ -43,29 +56,52 @@ def process_iteration(
     # Rejected lists
     rejected_lists,
     # Parameters
-    fs, dt_kde, bin_width, dt_sel, w_eval, rms_threshold, c0, dx, dt_tol,
+    fs,
+    dt_kde,
+    bin_width,
+    dt_sel,
+    w_eval,
+    rms_threshold,
+    c0,
+    dx,
+    dt_tol,
     # Iteration info
-    iteration):
+    iteration,
+):
     """
     Process a single iteration of the peak association algorithm.
-    
+
     Returns: Updated peak data, grid data, and association lists
     """
     # Unpack the association lists, hyperbolas, and rejected lists
-    (nhf_assoc_list_pair, nlf_assoc_list_pair, shf_assoc_list_pair, slf_assoc_list_pair,
-    nhf_assoc_list, shf_assoc_list, nlf_assoc_list, slf_assoc_list) = association_lists
-    n_rejected_list, s_rejected_list, n_rejected_hyperbolas, s_rejected_hyperbolas = rejected_lists 
+    (
+        nhf_assoc_list_pair,
+        nlf_assoc_list_pair,
+        shf_assoc_list_pair,
+        slf_assoc_list_pair,
+        nhf_assoc_list,
+        shf_assoc_list,
+        nlf_assoc_list,
+        slf_assoc_list,
+    ) = association_lists
+    n_rejected_list, s_rejected_list, n_rejected_hyperbolas, s_rejected_hyperbolas = (
+        rejected_lists
+    )
     n_used_hyperbolas, s_used_hyperbolas = hyperbolas
 
     # Stop if not enough peaks
-    if (len(n_up_peaks_hf[0]) < 100 or len(n_up_peaks_lf[0]) < 100 or
-        len(s_up_peaks_hf[0]) < 100 or len(s_up_peaks_lf[0]) < 100):
+    if (
+        len(n_up_peaks_hf[0]) < 100
+        or len(n_up_peaks_lf[0]) < 100
+        or len(s_up_peaks_hf[0]) < 100
+        or len(s_up_peaks_lf[0]) < 100
+    ):
         print("Not enough peaks to process, ending association loop.")
         return None
-    
+
     # PART 1: PREPARE DATA AND COMPUTE KDEs
     # =====================================
-    
+
     # Precompute the time indices from peaks for both frequency bands and cables
     n_idx_times_hf = np.array(n_up_peaks_hf[1]) / fs
     n_idx_times_lf = np.array(n_up_peaks_lf[1]) / fs
@@ -79,14 +115,19 @@ def process_iteration(
     s_delayed_picks_lf = s_idx_times_lf[None, :] - s_arr_tg[:, s_up_peaks_lf[0]]
 
     # Find the global min and max for KDE time range
-    all_delayed_picks = [n_delayed_picks_hf, n_delayed_picks_lf, s_delayed_picks_hf, s_delayed_picks_lf]
+    all_delayed_picks = [
+        n_delayed_picks_hf,
+        n_delayed_picks_lf,
+        s_delayed_picks_hf,
+        s_delayed_picks_lf,
+    ]
 
     non_empty_delayed_picks = [arr for arr in all_delayed_picks if arr.size > 0]
 
-    if not non_empty_delayed_picks: # End loop if no delayed picks
+    if not non_empty_delayed_picks:  # End loop if no delayed picks
         print("No more delayed picks, ending association loop.")
         return None
-        
+
     global_min = min(np.min(arr) for arr in non_empty_delayed_picks)
     global_max = max(np.max(arr) for arr in non_empty_delayed_picks)
 
@@ -96,31 +137,63 @@ def process_iteration(
 
     # Compute KDEs in parallel for each type
     # North high frequency
-    n_kde_hf = np.array(Parallel(n_jobs=-1)(
-        delayed(fast_kde_rect)(n_delayed_picks_hf[i, :], t_kde, overlap=dt_kde, bin_width=bin_width, weights=nSNRhf) 
-        for i in range(n_shape_x)
-    ))
+    n_kde_hf = np.array(
+        Parallel(n_jobs=-1)(
+            delayed(fast_kde_rect)(
+                n_delayed_picks_hf[i, :],
+                t_kde,
+                overlap=dt_kde,
+                bin_width=bin_width,
+                weights=nSNRhf,
+            )
+            for i in range(n_shape_x)
+        )
+    )
 
     # North low frequency
-    n_kde_lf = np.array(Parallel(n_jobs=-1)(
-        delayed(fast_kde_rect)(n_delayed_picks_lf[i, :], t_kde, overlap=dt_kde, bin_width=bin_width, weights=nSNRlf)
-        for i in range(n_shape_x)
-    ))
+    n_kde_lf = np.array(
+        Parallel(n_jobs=-1)(
+            delayed(fast_kde_rect)(
+                n_delayed_picks_lf[i, :],
+                t_kde,
+                overlap=dt_kde,
+                bin_width=bin_width,
+                weights=nSNRlf,
+            )
+            for i in range(n_shape_x)
+        )
+    )
 
     # South high frequency
-    s_kde_hf = np.array(Parallel(n_jobs=-1)(
-        delayed(fast_kde_rect)(s_delayed_picks_hf[i, :], t_kde, overlap=dt_kde, bin_width=bin_width, weights=sSNRhf)
-        for i in range(s_shape_x)
-    ))
+    s_kde_hf = np.array(
+        Parallel(n_jobs=-1)(
+            delayed(fast_kde_rect)(
+                s_delayed_picks_hf[i, :],
+                t_kde,
+                overlap=dt_kde,
+                bin_width=bin_width,
+                weights=sSNRhf,
+            )
+            for i in range(s_shape_x)
+        )
+    )
 
     # South low frequency
-    s_kde_lf = np.array(Parallel(n_jobs=-1)(
-        delayed(fast_kde_rect)(s_delayed_picks_lf[i, :], t_kde, overlap=dt_kde, bin_width=bin_width, weights=sSNRlf)
-        for i in range(s_shape_x)
-    ))
+    s_kde_lf = np.array(
+        Parallel(n_jobs=-1)(
+            delayed(fast_kde_rect)(
+                s_delayed_picks_lf[i, :],
+                t_kde,
+                overlap=dt_kde,
+                bin_width=bin_width,
+                weights=sSNRlf,
+            )
+            for i in range(s_shape_x)
+        )
+    )
 
-    # Reduced the number of grid points to speed up the process 
-    # if iteration == 0:  
+    # Reduced the number of grid points to speed up the process
+    # if iteration == 0:
     #     sum_kde = n_kde_hf + n_kde_lf + s_kde_hf + s_kde_lf
     #     maxsum = np.max(sum_kde, axis=1)
     #     binary = np.ones_like(maxsum)
@@ -133,7 +206,7 @@ def process_iteration(
 
     # PART 2: FIND MAXIMA AND COMPUTE THEORETICAL ARRIVALS
     # ===================================================
-    
+
     # Combine KDEs for high and low frequencies
     hf_kde = n_kde_hf + s_kde_hf  # Combined HF KDE from north and south
     lf_kde = n_kde_lf + s_kde_lf  # Combined LF KDE from north and south
@@ -149,7 +222,10 @@ def process_iteration(
         sigma_lf = np.std(lf_kde)
     # print(f'\nMax hf kde: {np.max(hf_kde)}, mu_hf: {mu_hf}, sigma_hf: {sigma_hf}, mu + 4*sigma_hf: {mu_hf + 4 * sigma_hf}\n')
     # print(f'Max lf kde: {np.max(lf_kde)}, mu_lf: {mu_lf}, sigma_lf: {sigma_lf}, mu + 4*sigma_lf: {mu_lf + 4 * sigma_lf}')
-    if np.max(hf_kde) < mu_hf + 1.5 * sigma_hf and np.max(lf_kde) < mu_lf + 1.5 * sigma_lf:  # 3sig for not Gabor, 1sig for Gabor
+    if (
+        np.max(hf_kde) < mu_hf + 1.5 * sigma_hf
+        and np.max(lf_kde) < mu_lf + 1.5 * sigma_lf
+    ):  # 3sig for not Gabor, 1sig for Gabor
         return None  # No significant peak found
 
     # Find maxima for HF KDE
@@ -170,7 +246,7 @@ def process_iteration(
 
     # PART 3: SELECT PICKS AND COMPUTE RESIDUALS
     # =========================================
-    
+
     # Select picks around each hyperbola within +/- dt_sel
     nhf_idx_dist, nhf_idx_time = select_picks(n_up_peaks_hf, nhf_hyperbola, dt_sel, fs)
     shf_idx_dist, shf_idx_time = select_picks(s_up_peaks_hf, shf_hyperbola, dt_sel, fs)
@@ -186,17 +262,33 @@ def process_iteration(
     # Narrow down the selection window for re-association
     dt_sel_narrowed = 0.7
     if nhf_n is not None:
-        nhf_hyperbola_new = dw.loc.calc_arrival_times(nhf_n[3], n_cable_pos, nhf_n[:3], c0)
-        nhf_idx_dist, nhf_idx_time = select_picks(n_up_peaks_hf, nhf_hyperbola_new, dt_sel_narrowed, fs)
+        nhf_hyperbola_new = dw.loc.calc_arrival_times(
+            nhf_n[3], n_cable_pos, nhf_n[:3], c0
+        )
+        nhf_idx_dist, nhf_idx_time = select_picks(
+            n_up_peaks_hf, nhf_hyperbola_new, dt_sel_narrowed, fs
+        )
     if shf_n is not None:
-        shf_hyperbola_new = dw.loc.calc_arrival_times(shf_n[3], s_cable_pos, shf_n[:3], c0)
-        shf_idx_dist, shf_idx_time = select_picks(s_up_peaks_hf, shf_hyperbola_new, dt_sel_narrowed, fs)
+        shf_hyperbola_new = dw.loc.calc_arrival_times(
+            shf_n[3], s_cable_pos, shf_n[:3], c0
+        )
+        shf_idx_dist, shf_idx_time = select_picks(
+            s_up_peaks_hf, shf_hyperbola_new, dt_sel_narrowed, fs
+        )
     if nlf_n is not None:
-        nlf_hyperbola_new = dw.loc.calc_arrival_times(nlf_n[3], n_cable_pos, nlf_n[:3], c0)
-        nlf_idx_dist, nlf_idx_time = select_picks(n_up_peaks_lf, nlf_hyperbola_new, dt_sel_narrowed, fs)
+        nlf_hyperbola_new = dw.loc.calc_arrival_times(
+            nlf_n[3], n_cable_pos, nlf_n[:3], c0
+        )
+        nlf_idx_dist, nlf_idx_time = select_picks(
+            n_up_peaks_lf, nlf_hyperbola_new, dt_sel_narrowed, fs
+        )
     if slf_n is not None:
-        slf_hyperbola_new = dw.loc.calc_arrival_times(slf_n[3], s_cable_pos, slf_n[:3], c0)
-        slf_idx_dist, slf_idx_time = select_picks(s_up_peaks_lf, slf_hyperbola_new, dt_sel_narrowed, fs)
+        slf_hyperbola_new = dw.loc.calc_arrival_times(
+            slf_n[3], s_cable_pos, slf_n[:3], c0
+        )
+        slf_idx_dist, slf_idx_time = select_picks(
+            s_up_peaks_lf, slf_hyperbola_new, dt_sel_narrowed, fs
+        )
 
     # Calculate time indices
     nhf_times = nhf_idx_time / fs
@@ -229,7 +321,7 @@ def process_iteration(
     hf_north_south_good = nhf_rms < rms_threshold and shf_rms < rms_threshold
     only_hf_north_good = nhf_rms < rms_threshold and shf_rms >= rms_threshold
     only_hf_south_good = nhf_rms >= rms_threshold and shf_rms < rms_threshold
-    
+
     lf_north_south_good = nlf_rms < rms_threshold and slf_rms < rms_threshold
     only_lf_north_good = nlf_rms < rms_threshold and slf_rms >= rms_threshold
     only_lf_south_good = nlf_rms >= rms_threshold and slf_rms < rms_threshold
@@ -254,181 +346,361 @@ def process_iteration(
     if hf_north_south_good and lf_north_south_good:
         # Process HF first (assuming it has priority)
         # North cable processing for HF
-        #TODO: reselect picks using the new hyperbola ?
-        if max_time_hf >= 0: # Do not associate the edge cases
+        # TODO: reselect picks using the new hyperbola ?
+        if max_time_hf >= 0:  # Do not associate the edge cases
             # snr = select_snr(n_up_peaks_hf, nhf_idx_dist, nhf_idx_time, nSNRhf)
-            mask_resi_n_hf = filter_peaks(nhf_residuals, nhf_idx_dist, nhf_idx_time, n_longi_offset, dx)
+            mask_resi_n_hf = filter_peaks(
+                nhf_residuals, nhf_idx_dist, nhf_idx_time, n_longi_offset, dx
+            )
             # mask_resi_n_hf = np.ones_like(nhf_residuals, dtype=bool)
-            nhf_assoc_list_pair.append(np.asarray((nhf_idx_dist[mask_resi_n_hf], nhf_idx_time[mask_resi_n_hf])))
+            nhf_assoc_list_pair.append(
+                np.asarray((nhf_idx_dist[mask_resi_n_hf], nhf_idx_time[mask_resi_n_hf]))
+            )
             n_used_hyperbolas.append(n_arr_tg[hf_imax, :])
-            n_arr_tg[hf_imax, :] = dw.loc.calc_arrival_times(0, n_cable_pos, nhf_n[:3], c0)
-            
+            n_arr_tg[hf_imax, :] = dw.loc.calc_arrival_times(
+                0, n_cable_pos, nhf_n[:3], c0
+            )
+
             # South cable processing for HF
-            mask_resi_s_hf = filter_peaks(shf_residuals, shf_idx_dist, shf_idx_time, s_longi_offset, dx)
+            mask_resi_s_hf = filter_peaks(
+                shf_residuals, shf_idx_dist, shf_idx_time, s_longi_offset, dx
+            )
             # mask_resi_s_hf = np.ones_like(shf_residuals, dtype=bool)
-            shf_assoc_list_pair.append(np.asarray((shf_idx_dist[mask_resi_s_hf], shf_idx_time[mask_resi_s_hf])))
+            shf_assoc_list_pair.append(
+                np.asarray((shf_idx_dist[mask_resi_s_hf], shf_idx_time[mask_resi_s_hf]))
+            )
             s_used_hyperbolas.append(s_arr_tg[hf_imax, :])
-            s_arr_tg[hf_imax, :] = dw.loc.calc_arrival_times(0, s_cable_pos, shf_n[:3], c0)
+            s_arr_tg[hf_imax, :] = dw.loc.calc_arrival_times(
+                0, s_cable_pos, shf_n[:3], c0
+            )
         else:
             mask_resi_n_hf = np.ones_like(nhf_residuals, dtype=bool)
             mask_resi_s_hf = np.ones_like(shf_residuals, dtype=bool)
-        
+
         # Then process LF
-        if max_time_lf >= 0: # Do not associate the edge cases
+        if max_time_lf >= 0:  # Do not associate the edge cases
             # North cable processing for LF
-            mask_resi_n_lf = filter_peaks(nlf_residuals, nlf_idx_dist, nlf_idx_time, n_longi_offset, dx)
+            mask_resi_n_lf = filter_peaks(
+                nlf_residuals, nlf_idx_dist, nlf_idx_time, n_longi_offset, dx
+            )
             # mask_resi_n_lf = np.ones_like(nlf_residuals, dtype=bool)
-            nlf_assoc_list_pair.append(np.asarray((nlf_idx_dist[mask_resi_n_lf], nlf_idx_time[mask_resi_n_lf])))
+            nlf_assoc_list_pair.append(
+                np.asarray((nlf_idx_dist[mask_resi_n_lf], nlf_idx_time[mask_resi_n_lf]))
+            )
             n_used_hyperbolas.append(n_arr_tg[lf_imax, :])
-            n_arr_tg[lf_imax, :] = dw.loc.calc_arrival_times(0, n_cable_pos, nlf_n[:3], c0)
-            
+            n_arr_tg[lf_imax, :] = dw.loc.calc_arrival_times(
+                0, n_cable_pos, nlf_n[:3], c0
+            )
+
             # South cable processing for LF
-            mask_resi_s_lf = filter_peaks(slf_residuals, slf_idx_dist, slf_idx_time, s_longi_offset, dx)
+            mask_resi_s_lf = filter_peaks(
+                slf_residuals, slf_idx_dist, slf_idx_time, s_longi_offset, dx
+            )
             # mask_resi_s_lf = np.ones_like(slf_residuals, dtype=bool)
-            slf_assoc_list_pair.append(np.asarray((slf_idx_dist[mask_resi_s_lf], slf_idx_time[mask_resi_s_lf])))
+            slf_assoc_list_pair.append(
+                np.asarray((slf_idx_dist[mask_resi_s_lf], slf_idx_time[mask_resi_s_lf]))
+            )
             s_used_hyperbolas.append(s_arr_tg[lf_imax, :])
-            s_arr_tg[lf_imax, :] = dw.loc.calc_arrival_times(0, s_cable_pos, slf_n[:3], c0)
+            s_arr_tg[lf_imax, :] = dw.loc.calc_arrival_times(
+                0, s_cable_pos, slf_n[:3], c0
+            )
         else:
             mask_resi_n_lf = np.ones_like(nlf_residuals, dtype=bool)
             mask_resi_s_lf = np.ones_like(slf_residuals, dtype=bool)
-        
+
         # Remove all selected picks from both frequencies and both cables
-        # Accurate indexes 
-        n_up_peaks_hf, nSNRhf = remove_peaks(n_up_peaks_hf, nhf_idx_dist, nhf_idx_time, mask_resi_n_hf, nSNRhf)
-        n_up_peaks_lf, nSNRlf = remove_peaks(n_up_peaks_lf, nlf_idx_dist, nlf_idx_time, mask_resi_n_lf, nSNRlf)
-        s_up_peaks_hf, sSNRhf = remove_peaks(s_up_peaks_hf, shf_idx_dist, shf_idx_time, mask_resi_s_hf, sSNRhf)
-        s_up_peaks_lf, sSNRlf = remove_peaks(s_up_peaks_lf, slf_idx_dist, slf_idx_time, mask_resi_s_lf, sSNRlf)
+        # Accurate indexes
+        n_up_peaks_hf, nSNRhf = remove_peaks(
+            n_up_peaks_hf, nhf_idx_dist, nhf_idx_time, mask_resi_n_hf, nSNRhf
+        )
+        n_up_peaks_lf, nSNRlf = remove_peaks(
+            n_up_peaks_lf, nlf_idx_dist, nlf_idx_time, mask_resi_n_lf, nSNRlf
+        )
+        s_up_peaks_hf, sSNRhf = remove_peaks(
+            s_up_peaks_hf, shf_idx_dist, shf_idx_time, mask_resi_s_hf, sSNRhf
+        )
+        s_up_peaks_lf, sSNRlf = remove_peaks(
+            s_up_peaks_lf, slf_idx_dist, slf_idx_time, mask_resi_s_lf, sSNRlf
+        )
 
         # Fuzzy indexes (For peaks that are associated to hf or lf but also have points in the other band)
-        n_up_peaks_hf, nSNRhf = remove_peaks_tolerance(n_up_peaks_hf, nlf_idx_dist, nlf_idx_time, mask_resi_n_lf, nSNRhf, dt_tol=dt_tol)
-        n_up_peaks_lf, nSNRlf = remove_peaks_tolerance(n_up_peaks_lf, nhf_idx_dist, nhf_idx_time, mask_resi_n_hf, nSNRlf, dt_tol=dt_tol)
-        s_up_peaks_hf, sSNRhf = remove_peaks_tolerance(s_up_peaks_hf, slf_idx_dist, slf_idx_time, mask_resi_s_lf, sSNRhf, dt_tol=dt_tol)
-        s_up_peaks_lf, sSNRlf = remove_peaks_tolerance(s_up_peaks_lf, shf_idx_dist, shf_idx_time, mask_resi_s_hf, sSNRlf, dt_tol=dt_tol)
+        n_up_peaks_hf, nSNRhf = remove_peaks_tolerance(
+            n_up_peaks_hf,
+            nlf_idx_dist,
+            nlf_idx_time,
+            mask_resi_n_lf,
+            nSNRhf,
+            dt_tol=dt_tol,
+        )
+        n_up_peaks_lf, nSNRlf = remove_peaks_tolerance(
+            n_up_peaks_lf,
+            nhf_idx_dist,
+            nhf_idx_time,
+            mask_resi_n_hf,
+            nSNRlf,
+            dt_tol=dt_tol,
+        )
+        s_up_peaks_hf, sSNRhf = remove_peaks_tolerance(
+            s_up_peaks_hf,
+            slf_idx_dist,
+            slf_idx_time,
+            mask_resi_s_lf,
+            sSNRhf,
+            dt_tol=dt_tol,
+        )
+        s_up_peaks_lf, sSNRlf = remove_peaks_tolerance(
+            s_up_peaks_lf,
+            shf_idx_dist,
+            shf_idx_time,
+            mask_resi_s_hf,
+            sSNRlf,
+            dt_tol=dt_tol,
+        )
 
         processed = True
 
     # First priority: Case 1 - HF North and South are good
     elif hf_north_south_good:
         # North cable processing
-        if max_time_hf >= 0: # Do not associate the edge cases
-            mask_resi_n = filter_peaks(nhf_residuals, nhf_idx_dist, nhf_idx_time, n_longi_offset, dx)
+        if max_time_hf >= 0:  # Do not associate the edge cases
+            mask_resi_n = filter_peaks(
+                nhf_residuals, nhf_idx_dist, nhf_idx_time, n_longi_offset, dx
+            )
             # mask_resi_n = np.ones_like(nhf_residuals, dtype=bool)
-            nhf_assoc_list_pair.append(np.asarray((nhf_idx_dist[mask_resi_n], nhf_idx_time[mask_resi_n])))
+            nhf_assoc_list_pair.append(
+                np.asarray((nhf_idx_dist[mask_resi_n], nhf_idx_time[mask_resi_n]))
+            )
             n_used_hyperbolas.append(n_arr_tg[hf_imax, :])
-            n_arr_tg[hf_imax, :] = dw.loc.calc_arrival_times(0, n_cable_pos, nhf_n[:3], c0)
-        
+            n_arr_tg[hf_imax, :] = dw.loc.calc_arrival_times(
+                0, n_cable_pos, nhf_n[:3], c0
+            )
+
             # South cable processing
-            mask_resi_s = filter_peaks(shf_residuals, shf_idx_dist, shf_idx_time, s_longi_offset, dx)
+            mask_resi_s = filter_peaks(
+                shf_residuals, shf_idx_dist, shf_idx_time, s_longi_offset, dx
+            )
             # mask_resi_s = np.ones_like(shf_residuals, dtype=bool)
-            shf_assoc_list_pair.append(np.asarray((shf_idx_dist[mask_resi_s], shf_idx_time[mask_resi_s])))
+            shf_assoc_list_pair.append(
+                np.asarray((shf_idx_dist[mask_resi_s], shf_idx_time[mask_resi_s]))
+            )
             s_used_hyperbolas.append(s_arr_tg[hf_imax, :])
-            s_arr_tg[hf_imax, :] = dw.loc.calc_arrival_times(0, s_cable_pos, shf_n[:3], c0)
+            s_arr_tg[hf_imax, :] = dw.loc.calc_arrival_times(
+                0, s_cable_pos, shf_n[:3], c0
+            )
         else:
             mask_resi_n = np.ones_like(nhf_residuals, dtype=bool)
             mask_resi_s = np.ones_like(shf_residuals, dtype=bool)
-        
+
         # Remove selected picks from both frequency bands (north)
-        n_up_peaks_hf, nSNRhf = remove_peaks(n_up_peaks_hf, nhf_idx_dist, nhf_idx_time, mask_resi_n, nSNRhf)
-        n_up_peaks_lf, nSNRlf = remove_peaks_tolerance(n_up_peaks_lf, nhf_idx_dist, nhf_idx_time, mask_resi_n, nSNRlf, dt_tol=dt_tol)
+        n_up_peaks_hf, nSNRhf = remove_peaks(
+            n_up_peaks_hf, nhf_idx_dist, nhf_idx_time, mask_resi_n, nSNRhf
+        )
+        n_up_peaks_lf, nSNRlf = remove_peaks_tolerance(
+            n_up_peaks_lf,
+            nhf_idx_dist,
+            nhf_idx_time,
+            mask_resi_n,
+            nSNRlf,
+            dt_tol=dt_tol,
+        )
 
         # Remove selected picks from both frequency bands (south)
-        s_up_peaks_hf, sSNRhf = remove_peaks(s_up_peaks_hf, shf_idx_dist, shf_idx_time, mask_resi_s, sSNRhf)
-        s_up_peaks_lf, sSNRlf = remove_peaks_tolerance(s_up_peaks_lf, shf_idx_dist, shf_idx_time, mask_resi_s, sSNRlf, dt_tol=dt_tol)
-        
+        s_up_peaks_hf, sSNRhf = remove_peaks(
+            s_up_peaks_hf, shf_idx_dist, shf_idx_time, mask_resi_s, sSNRhf
+        )
+        s_up_peaks_lf, sSNRlf = remove_peaks_tolerance(
+            s_up_peaks_lf,
+            shf_idx_dist,
+            shf_idx_time,
+            mask_resi_s,
+            sSNRlf,
+            dt_tol=dt_tol,
+        )
+
         processed = True
 
-    # Second priority: Case 2 - LF North and South are good  
+    # Second priority: Case 2 - LF North and South are good
     elif lf_north_south_good:
         # North cable processing
-        if max_time_lf >= 0: # Do not associate the edge cases
-            mask_resi_n = filter_peaks(nlf_residuals, nlf_idx_dist, nlf_idx_time, n_longi_offset, dx)
+        if max_time_lf >= 0:  # Do not associate the edge cases
+            mask_resi_n = filter_peaks(
+                nlf_residuals, nlf_idx_dist, nlf_idx_time, n_longi_offset, dx
+            )
             # mask_resi_n = np.ones_like(nlf_residuals, dtype=bool)
-            nlf_assoc_list_pair.append(np.asarray((nlf_idx_dist[mask_resi_n], nlf_idx_time[mask_resi_n])))
+            nlf_assoc_list_pair.append(
+                np.asarray((nlf_idx_dist[mask_resi_n], nlf_idx_time[mask_resi_n]))
+            )
             n_used_hyperbolas.append(n_arr_tg[lf_imax, :])
-            n_arr_tg[lf_imax, :] = dw.loc.calc_arrival_times(0, n_cable_pos, nlf_n[:3], c0)
+            n_arr_tg[lf_imax, :] = dw.loc.calc_arrival_times(
+                0, n_cable_pos, nlf_n[:3], c0
+            )
 
             # South cable processing
-            mask_resi_s = filter_peaks(slf_residuals, slf_idx_dist, slf_idx_time, s_longi_offset, dx)
+            mask_resi_s = filter_peaks(
+                slf_residuals, slf_idx_dist, slf_idx_time, s_longi_offset, dx
+            )
             # mask_resi_s = np.ones_like(slf_residuals, dtype=bool)
-            slf_assoc_list_pair.append(np.asarray((slf_idx_dist[mask_resi_s], slf_idx_time[mask_resi_s])))
+            slf_assoc_list_pair.append(
+                np.asarray((slf_idx_dist[mask_resi_s], slf_idx_time[mask_resi_s]))
+            )
             s_used_hyperbolas.append(s_arr_tg[lf_imax, :])
-            s_arr_tg[lf_imax, :] = dw.loc.calc_arrival_times(0, s_cable_pos, slf_n[:3], c0)
+            s_arr_tg[lf_imax, :] = dw.loc.calc_arrival_times(
+                0, s_cable_pos, slf_n[:3], c0
+            )
         else:
             mask_resi_n = np.ones_like(nlf_residuals, dtype=bool)
             mask_resi_s = np.ones_like(slf_residuals, dtype=bool)
 
         # Remove selected picks from both frequency bands (north)
-        n_up_peaks_lf, nSNRlf = remove_peaks(n_up_peaks_lf, nlf_idx_dist, nlf_idx_time, mask_resi_n, nSNRlf)
-        n_up_peaks_hf, nSNRhf = remove_peaks_tolerance(n_up_peaks_hf, nlf_idx_dist, nlf_idx_time, mask_resi_n, nSNRhf, dt_tol=dt_tol)
+        n_up_peaks_lf, nSNRlf = remove_peaks(
+            n_up_peaks_lf, nlf_idx_dist, nlf_idx_time, mask_resi_n, nSNRlf
+        )
+        n_up_peaks_hf, nSNRhf = remove_peaks_tolerance(
+            n_up_peaks_hf,
+            nlf_idx_dist,
+            nlf_idx_time,
+            mask_resi_n,
+            nSNRhf,
+            dt_tol=dt_tol,
+        )
 
         # Remove selected picks from both frequency bands (south)
-        s_up_peaks_lf, sSNRlf = remove_peaks(s_up_peaks_lf, slf_idx_dist, slf_idx_time, mask_resi_s, sSNRlf)
-        s_up_peaks_hf, sSNRhf = remove_peaks_tolerance(s_up_peaks_hf, slf_idx_dist, slf_idx_time, mask_resi_s, sSNRhf, dt_tol=dt_tol)
-        
+        s_up_peaks_lf, sSNRlf = remove_peaks(
+            s_up_peaks_lf, slf_idx_dist, slf_idx_time, mask_resi_s, sSNRlf
+        )
+        s_up_peaks_hf, sSNRhf = remove_peaks_tolerance(
+            s_up_peaks_hf,
+            slf_idx_dist,
+            slf_idx_time,
+            mask_resi_s,
+            sSNRhf,
+            dt_tol=dt_tol,
+        )
+
         processed = True
-    
+
     # Lower priority cases - if neither combined case is good, try individual cables
     if not processed:
         # Case 3: Only HF North is good
         if only_hf_north_good:
             if max_time_hf >= 0:
-                mask_resi = filter_peaks(nhf_residuals, nhf_idx_dist, nhf_idx_time, n_longi_offset, dx)
+                mask_resi = filter_peaks(
+                    nhf_residuals, nhf_idx_dist, nhf_idx_time, n_longi_offset, dx
+                )
                 # mask_resi = np.ones_like(nhf_residuals, dtype=bool)
-                nhf_assoc_list.append(np.asarray((nhf_idx_dist[mask_resi], nhf_idx_time[mask_resi])))
+                nhf_assoc_list.append(
+                    np.asarray((nhf_idx_dist[mask_resi], nhf_idx_time[mask_resi]))
+                )
                 n_used_hyperbolas.append(n_arr_tg[hf_imax, :])
-                n_arr_tg[hf_imax, :] = dw.loc.calc_arrival_times(0, n_cable_pos, nhf_n[:3], c0)
+                n_arr_tg[hf_imax, :] = dw.loc.calc_arrival_times(
+                    0, n_cable_pos, nhf_n[:3], c0
+                )
             else:
                 mask_resi = np.ones_like(nhf_residuals, dtype=bool)
 
-            n_up_peaks_hf, nSNRhf = remove_peaks(n_up_peaks_hf, nhf_idx_dist, nhf_idx_time, mask_resi, nSNRhf)
-            n_up_peaks_lf, nSNRlf = remove_peaks_tolerance(n_up_peaks_lf, nhf_idx_dist, nhf_idx_time, mask_resi, nSNRlf, dt_tol=dt_tol)
+            n_up_peaks_hf, nSNRhf = remove_peaks(
+                n_up_peaks_hf, nhf_idx_dist, nhf_idx_time, mask_resi, nSNRhf
+            )
+            n_up_peaks_lf, nSNRlf = remove_peaks_tolerance(
+                n_up_peaks_lf,
+                nhf_idx_dist,
+                nhf_idx_time,
+                mask_resi,
+                nSNRlf,
+                dt_tol=dt_tol,
+            )
             processed = True
-            
+
         # Case 4: Only HF South is good
         elif only_hf_south_good:
             if max_time_hf >= 0:
-                mask_resi = filter_peaks(shf_residuals, shf_idx_dist, shf_idx_time, s_longi_offset, dx)
+                mask_resi = filter_peaks(
+                    shf_residuals, shf_idx_dist, shf_idx_time, s_longi_offset, dx
+                )
                 # mask_resi = np.ones_like(shf_residuals, dtype=bool)
-                shf_assoc_list.append(np.asarray((shf_idx_dist[mask_resi], shf_idx_time[mask_resi])))
+                shf_assoc_list.append(
+                    np.asarray((shf_idx_dist[mask_resi], shf_idx_time[mask_resi]))
+                )
                 s_used_hyperbolas.append(s_arr_tg[hf_imax, :])
-                s_arr_tg[hf_imax, :] = dw.loc.calc_arrival_times(0, s_cable_pos, shf_n[:3], c0)
+                s_arr_tg[hf_imax, :] = dw.loc.calc_arrival_times(
+                    0, s_cable_pos, shf_n[:3], c0
+                )
             else:
                 mask_resi = np.ones_like(shf_residuals, dtype=bool)
-            
-            s_up_peaks_hf, sSNRhf = remove_peaks(s_up_peaks_hf, shf_idx_dist, shf_idx_time, mask_resi, sSNRhf)
-            s_up_peaks_lf, sSNRlf = remove_peaks_tolerance(s_up_peaks_lf, shf_idx_dist, shf_idx_time, mask_resi, sSNRlf, dt_tol=dt_tol)
+
+            s_up_peaks_hf, sSNRhf = remove_peaks(
+                s_up_peaks_hf, shf_idx_dist, shf_idx_time, mask_resi, sSNRhf
+            )
+            s_up_peaks_lf, sSNRlf = remove_peaks_tolerance(
+                s_up_peaks_lf,
+                shf_idx_dist,
+                shf_idx_time,
+                mask_resi,
+                sSNRlf,
+                dt_tol=dt_tol,
+            )
             processed = True
-            
+
         # Case 5: Only LF North is good
         elif only_lf_north_good:
             if max_time_lf >= 0:
-                mask_resi = filter_peaks(nlf_residuals, nlf_idx_dist, nlf_idx_time, n_longi_offset, dx)
+                mask_resi = filter_peaks(
+                    nlf_residuals, nlf_idx_dist, nlf_idx_time, n_longi_offset, dx
+                )
                 # mask_resi = np.ones_like(nlf_residuals, dtype=bool)
-                nlf_assoc_list.append(np.asarray((nlf_idx_dist[mask_resi], nlf_idx_time[mask_resi])))
+                nlf_assoc_list.append(
+                    np.asarray((nlf_idx_dist[mask_resi], nlf_idx_time[mask_resi]))
+                )
                 n_used_hyperbolas.append(n_arr_tg[lf_imax, :])
-                n_arr_tg[lf_imax, :] = dw.loc.calc_arrival_times(0, n_cable_pos, nlf_n[:3], c0)
+                n_arr_tg[lf_imax, :] = dw.loc.calc_arrival_times(
+                    0, n_cable_pos, nlf_n[:3], c0
+                )
             else:
                 mask_resi = np.ones_like(nlf_residuals, dtype=bool)
-            
-            n_up_peaks_lf, nSNRlf = remove_peaks(n_up_peaks_lf, nlf_idx_dist, nlf_idx_time, mask_resi, nSNRlf)
-            n_up_peaks_hf, nSNRhf = remove_peaks_tolerance(n_up_peaks_hf, nlf_idx_dist, nlf_idx_time, mask_resi, nSNRhf, dt_tol=dt_tol)
+
+            n_up_peaks_lf, nSNRlf = remove_peaks(
+                n_up_peaks_lf, nlf_idx_dist, nlf_idx_time, mask_resi, nSNRlf
+            )
+            n_up_peaks_hf, nSNRhf = remove_peaks_tolerance(
+                n_up_peaks_hf,
+                nlf_idx_dist,
+                nlf_idx_time,
+                mask_resi,
+                nSNRhf,
+                dt_tol=dt_tol,
+            )
             processed = True
-            
+
         # Case 6: Only LF South is good
         elif only_lf_south_good:
             if max_time_lf >= 0:
-                mask_resi = filter_peaks(slf_residuals, slf_idx_dist, slf_idx_time, s_longi_offset, dx)
+                mask_resi = filter_peaks(
+                    slf_residuals, slf_idx_dist, slf_idx_time, s_longi_offset, dx
+                )
                 # mask_resi = np.ones_like(slf_residuals, dtype=bool)
-                slf_assoc_list.append(np.asarray((slf_idx_dist[mask_resi], slf_idx_time[mask_resi])))
+                slf_assoc_list.append(
+                    np.asarray((slf_idx_dist[mask_resi], slf_idx_time[mask_resi]))
+                )
                 s_used_hyperbolas.append(s_arr_tg[lf_imax, :])
-                s_arr_tg[lf_imax, :] = dw.loc.calc_arrival_times(0, s_cable_pos, slf_n[:3], c0)
+                s_arr_tg[lf_imax, :] = dw.loc.calc_arrival_times(
+                    0, s_cable_pos, slf_n[:3], c0
+                )
             else:
                 mask_resi = np.ones_like(slf_residuals, dtype=bool)
-            
-            s_up_peaks_lf, sSNRlf = remove_peaks(s_up_peaks_lf, slf_idx_dist, slf_idx_time, mask_resi, sSNRlf)
-            s_up_peaks_hf, sSNRhf = remove_peaks_tolerance(s_up_peaks_hf, slf_idx_dist, slf_idx_time, mask_resi, sSNRhf, dt_tol=dt_tol)
+
+            s_up_peaks_lf, sSNRlf = remove_peaks(
+                s_up_peaks_lf, slf_idx_dist, slf_idx_time, mask_resi, sSNRlf
+            )
+            s_up_peaks_hf, sSNRhf = remove_peaks_tolerance(
+                s_up_peaks_hf,
+                slf_idx_dist,
+                slf_idx_time,
+                mask_resi,
+                sSNRhf,
+                dt_tol=dt_tol,
+            )
             processed = True
-    
+
     # Case 7: No good residuals - reject the hyperbolas
     if not processed:
         # Add the rejected hyperbolas to rejection lists
@@ -436,12 +708,12 @@ def process_iteration(
         n_rejected_list.append(np.asarray((nlf_idx_dist, nlf_idx_time)))
         n_rejected_hyperbolas.append(n_arr_tg[hf_imax, :])
         n_rejected_hyperbolas.append(n_arr_tg[lf_imax, :])
-        
+
         s_rejected_list.append(np.asarray((shf_idx_dist, shf_idx_time)))
         s_rejected_list.append(np.asarray((slf_idx_dist, slf_idx_time)))
         s_rejected_hyperbolas.append(s_arr_tg[hf_imax, :])
         s_rejected_hyperbolas.append(s_arr_tg[lf_imax, :])
-        
+
         # Remove the hyperbolas from the grid arrays
         n_arr_tg = np.delete(n_arr_tg, hf_imax, axis=0)
         s_arr_tg = np.delete(s_arr_tg, hf_imax, axis=0)
@@ -450,25 +722,45 @@ def process_iteration(
 
     # Update the progress bar with the number of associated calls
     association_lists = [
-        nhf_assoc_list_pair, nlf_assoc_list_pair, shf_assoc_list_pair, slf_assoc_list_pair,
-        nhf_assoc_list, shf_assoc_list, nlf_assoc_list, slf_assoc_list
-        ]
-    
+        nhf_assoc_list_pair,
+        nlf_assoc_list_pair,
+        shf_assoc_list_pair,
+        slf_assoc_list_pair,
+        nhf_assoc_list,
+        shf_assoc_list,
+        nlf_assoc_list,
+        slf_assoc_list,
+    ]
+
     rejected_lists = [
-        n_rejected_list, s_rejected_list, n_rejected_hyperbolas, s_rejected_hyperbolas
+        n_rejected_list,
+        s_rejected_list,
+        n_rejected_hyperbolas,
+        s_rejected_hyperbolas,
     ]
 
-    hyperbolas = [
-        n_used_hyperbolas, s_used_hyperbolas
-    ]
+    hyperbolas = [n_used_hyperbolas, s_used_hyperbolas]
 
-      # Return all the updated data
+    # Return all the updated data
     return (
         # Updated peak data
-        n_up_peaks_hf, n_up_peaks_lf, s_up_peaks_hf, s_up_peaks_lf,
-        nSNRhf, nSNRlf, sSNRhf, sSNRlf,
-        n_arr_tg, s_arr_tg, n_shape_x, s_shape_x, 
-        association_lists, rejected_lists, hyperbolas)
+        n_up_peaks_hf,
+        n_up_peaks_lf,
+        s_up_peaks_hf,
+        s_up_peaks_lf,
+        nSNRhf,
+        nSNRlf,
+        sSNRhf,
+        sSNRlf,
+        n_arr_tg,
+        s_arr_tg,
+        n_shape_x,
+        s_shape_x,
+        association_lists,
+        rejected_lists,
+        hyperbolas,
+    )
+
 
 ## Helper functions for KDE and peak selection ----------------------------
 
@@ -488,25 +780,29 @@ def compute_kde(delayed_picks, t_kde, bin_width, weights=None):
     Returns
     -------
     array-like
-        KDE density values.  
-    
+        KDE density values.
+
     """
     if weights is not None:
         # Use weighted KDE, Scipy's gaussian_kde is faster that sklearn's KernelDensity for weighted KDE
-        kde = gaussian_kde(delayed_picks, bw_method=bin_width/np.std(delayed_picks), weights=weights)
+        kde = gaussian_kde(
+            delayed_picks, bw_method=bin_width / np.std(delayed_picks), weights=weights
+        )
         density = kde(t_kde)
     else:
-        kde = KernelDensity(kernel="epanechnikov", bandwidth=bin_width, algorithm='ball_tree')
-        kde.fit(delayed_picks[:, None]) # Reshape to (n_samples, 1)
-        log_dens = kde.score_samples(t_kde[:, np.newaxis]) # Evaluate on grid
-        density = np.exp(log_dens) # Convert log-density to normal density
+        kde = KernelDensity(
+            kernel="epanechnikov", bandwidth=bin_width, algorithm="ball_tree"
+        )
+        kde.fit(delayed_picks[:, None])  # Reshape to (n_samples, 1)
+        log_dens = kde.score_samples(t_kde[:, np.newaxis])  # Evaluate on grid
+        density = np.exp(log_dens)  # Convert log-density to normal density
     return density
 
 
 def fast_kde_rect(delayed_picks, t_kde, overlap=None, bin_width=None, weights=None):
     """
     Fast KDE approximation using histogram and optional rectangular smoothing.
-    
+
     Parameters
     ----------
     delayed_picks : array-like
@@ -517,9 +813,9 @@ def fast_kde_rect(delayed_picks, t_kde, overlap=None, bin_width=None, weights=No
     # Histogram the picks
     hist_range = (t_kde[0], t_kde[-1])
     bins = len(t_kde)
-    
+
     hist, _ = np.histogram(delayed_picks, bins=bins, range=hist_range, weights=weights)
-    
+
     # Optional rectangular smoothing
     if overlap is None:
         overlap = np.diff(t_kde).mean()
@@ -530,8 +826,8 @@ def fast_kde_rect(delayed_picks, t_kde, overlap=None, bin_width=None, weights=No
         kernel_bins += 1  # Ensure odd length
     kernel = np.ones(kernel_bins) / kernel_bins
     hist = sp.convolve(hist, kernel, mode="same")
-    
-    return hist #/ np.trapezoid(hist, t_kde)  # Normalize to match KDE style, but overrides the stop condition
+
+    return hist  # / np.trapezoid(hist, t_kde)  # Normalize to match KDE style, but overrides the stop condition
 
 
 def select_picks(peaks, hyperbola, dt_sel, fs):
@@ -544,7 +840,9 @@ def select_picks(peaks, hyperbola, dt_sel, fs):
         if hyperbola[dist_idx] - dt_sel < pick_time < hyperbola[dist_idx] + dt_sel:
             if dist_idx in selected_picks[0]:
                 existing_idx = selected_picks[0].index(dist_idx)
-                if abs(hyperbola[dist_idx] - pick_time) < abs(hyperbola[dist_idx] - selected_picks[1][existing_idx] / fs):
+                if abs(hyperbola[dist_idx] - pick_time) < abs(
+                    hyperbola[dist_idx] - selected_picks[1][existing_idx] / fs
+                ):
                     selected_picks[1][existing_idx] = idx  # Replace with closer pick
             else:
                 selected_picks[0].append(dist_idx)
@@ -592,10 +890,10 @@ def apply_spatial_windows(peaks, snr, win):
     tuple of np.ndarray
         The peaks indexes after applying the spatial window.
     """
-    
+
     npeakshf, npeakslf, speakshf, speakslf = peaks
     nSNRhf, nSNRlf, sSNRhf, sSNRlf = snr
-    
+
     # Apply the spatial window to the North cable peaks
     mask_hf = (npeakshf[0, :] >= win[0]) & (npeakshf[0, :] <= win[1])
     mask_lf = (npeakslf[0, :] >= win[0]) & (npeakslf[0, :] <= win[1])
@@ -626,14 +924,16 @@ def compute_curvature(w_times, w_distances):
     ddy = np.diff(w_distances)
     ddx2 = np.diff(ddx)
     ddy2 = np.diff(ddy)
-    curvature = np.abs(ddx2 * ddy[1:] - ddx[1:] * ddy2) / (ddx[1:]**2 + ddy[1:]**2)**(3/2)
+    curvature = np.abs(ddx2 * ddy[1:] - ddx[1:] * ddy2) / (
+        ddx[1:] ** 2 + ddy[1:] ** 2
+    ) ** (3 / 2)
     return np.mean(curvature)
-    
+
 
 def loc_picks(idx_dist, idx_time, cable_pos, c0, fs, Nbiter=20):
     """
     Solve the least squares localization problem for a single cable using the picks' indices.
-    
+
     Parameters
     ----------
     idx_dist : array-like
@@ -648,7 +948,7 @@ def loc_picks(idx_dist, idx_time, cable_pos, c0, fs, Nbiter=20):
         The sampling frequency.
     Nbiter : int, optional
         The number of iterations for the least squares solution, default is 20.
-    
+
     Returns
     -------
     tuple
@@ -657,15 +957,31 @@ def loc_picks(idx_dist, idx_time, cable_pos, c0, fs, Nbiter=20):
     # Check if the indices are empty
     if len(idx_dist) == 0:
         return None, None
-    
+
     idxmin_t = np.argmin(idx_time)  # Find the index of the minimum time
     times = idx_time / fs
-    apex_loc = cable_pos[:, 0][idx_dist[idxmin_t]]  # Find the apex location from the minimum time index
-    init = [apex_loc, np.mean(cable_pos[:, 1]), -40, np.min(times)]  # Initial guess for the localization
-    
+    apex_loc = cable_pos[:, 0][
+        idx_dist[idxmin_t]
+    ]  # Find the apex location from the minimum time index
+    init = [
+        apex_loc,
+        np.mean(cable_pos[:, 1]),
+        -40,
+        np.min(times),
+    ]  # Initial guess for the localization
+
     # Solve the least squares problem using the provided parameters
-    n, residuals = dw.loc.solve_lq_weight(times, cable_pos[idx_dist], c0, Nbiter, fix_z=True, ninit=init, residuals=True, return_uncertainty=False)
-    
+    n, residuals = dw.loc.solve_lq_weight(
+        times,
+        cable_pos[idx_dist],
+        c0,
+        Nbiter,
+        fix_z=True,
+        ninit=init,
+        residuals=True,
+        return_uncertainty=False,
+    )
+
     return n, residuals
 
 
@@ -685,11 +1001,17 @@ def loc_from_picks_list(associated_list, cable_pos, c0, fs):
         Nbiter = 20
 
         # Initial guess (apex_loc, mean_y, -30m, min(Ti))
-        n_init = [apex_loc, np.mean(cable_pos[:,1]), -40, np.min(Ti)]
-        print(f'Initial guess: {n_init[0]:.2f} m, {n_init[1]:.2f} m, {n_init[2]:.2f} m, {n_init[3]:.2f} s')
+        n_init = [apex_loc, np.mean(cable_pos[:, 1]), -40, np.min(Ti)]
+        print(
+            f"Initial guess: {n_init[0]:.2f} m, {n_init[1]:.2f} m, {n_init[2]:.2f} m, {n_init[3]:.2f} s"
+        )
         # Solve the least squares problem
-        n = dw.loc.solve_lq_weight(Ti, cable_pos[select[0][:]], c0, Nbiter, fix_z=True, ninit=n_init)
-        nalt = dw.loc.solve_lq_weight(Ti, cable_pos[select[0][:]], c0, Nbiter-1, fix_z=True, ninit=n_init)
+        n = dw.loc.solve_lq_weight(
+            Ti, cable_pos[select[0][:]], c0, Nbiter, fix_z=True, ninit=n_init
+        )
+        nalt = dw.loc.solve_lq_weight(
+            Ti, cable_pos[select[0][:]], c0, Nbiter - 1, fix_z=True, ninit=n_init
+        )
 
         localizations.append(n)
         alt_localizations.append(nalt)
@@ -716,23 +1038,27 @@ def compute_cumsum(residuals, idx_t, threshold=1500):
         A boolean mask where cumulative residuals are less than the threshold.
     """
     idx_min_t = np.argmin(idx_t)  # Find the index of the minimum time
-    left_cs = np.cumsum(abs(residuals[idx_min_t::-1]))  # Cumulative sum for the left side
-    right_cs = np.cumsum(abs(residuals[idx_min_t:]))   # Cumulative sum for the right side
+    left_cs = np.cumsum(
+        abs(residuals[idx_min_t::-1])
+    )  # Cumulative sum for the left side
+    right_cs = np.cumsum(
+        abs(residuals[idx_min_t:])
+    )  # Cumulative sum for the right side
     mod_cs = np.concatenate((left_cs[::-1], right_cs[1:]))  # Combine both sides
     mask_resi = mod_cs < threshold  # Create the mask based on the threshold
-    
+
     return mask_resi
 
 
-def filter_peaks(residuals, idx_dist, idx_time, longi_offset, dx, gap_tresh = 15):
-    """ Filters peaks based on distance and residuals.
+def filter_peaks(residuals, idx_dist, idx_time, longi_offset, dx, gap_tresh=15):
+    """Filters peaks based on distance and residuals.
     Parameters
     ----------
     residuals : np.ndarray
         Residuals of the least-square localization.
     idx_dist : np.ndarray
         Indices of the distances of the picks.
-    idx_time : np.ndarray   
+    idx_time : np.ndarray
         Indices of the times of the picks.
     longi_offset : float
         Longitudinal offset for the distance calculation.
@@ -745,11 +1071,13 @@ def filter_peaks(residuals, idx_dist, idx_time, longi_offset, dx, gap_tresh = 15
     idxmin_t = np.argmin(idx_time)
     distances = (longi_offset + idx_dist) * dx * 1e-3
 
-    mask_dist = abs(distances - distances[idxmin_t]) < 40 # Distance mask, 40 km from the minimum
+    mask_dist = (
+        abs(distances - distances[idxmin_t]) < 40
+    )  # Distance mask, 40 km from the minimum
     gaps = np.zeros_like(distances)
 
     rms_total = np.sqrt(np.mean(residuals**2))
-    mask_resi = abs(residuals) <  3 * rms_total # 1.5 or 3 makes a difference
+    mask_resi = abs(residuals) < 3 * rms_total  # 1.5 or 3 makes a difference
     # Find the gaps only for the valid (masked) distances
     valid_distances = distances[mask_resi]
     if valid_distances.size > 1:
@@ -759,16 +1087,16 @@ def filter_peaks(residuals, idx_dist, idx_time, longi_offset, dx, gap_tresh = 15
         gaps[idx_valid[:-1]] = gaps_valid
 
     # Distance gaps evaluation
-    # Remove points after a large gap from the minimum 
+    # Remove points after a large gap from the minimum
     for l, gap in enumerate(gaps[idxmin_t:]):
         if gap > gap_tresh:
-            mask_resi[idxmin_t + l + 1:] = False
+            mask_resi[idxmin_t + l + 1 :] = False
             break
 
     # Remove points before a large gap from the minimum, in the reverse direction
-    for l, gap in enumerate(gaps[idxmin_t-1::-1]):
+    for l, gap in enumerate(gaps[idxmin_t - 1 :: -1]):
         if gap > gap_tresh:
-            mask_resi[:idxmin_t - l] = False
+            mask_resi[: idxmin_t - l] = False
             break
     return mask_dist & mask_resi
 
@@ -795,29 +1123,26 @@ def remove_peaks(up_peaks, idx_dist, idx_time, mask_resi, snr):
 
 def clean_pairs(
     primary: list[np.ndarray],
-    counterpart:list[np.ndarray],
+    counterpart: list[np.ndarray],
     counterpart_associated: list[np.ndarray],
 ) -> None:
-    
-    """
-    """
+    """ """
     empty_idx = [i for i, arr in enumerate(primary) if arr.size <= 1000]
 
     for i in reversed(empty_idx):
         counterpart_associated.append(counterpart.pop(i))
         primary.pop(i)
-    return
 
 
 def clean_singles(associtations: list[np.ndarray]) -> None:
     """
     Cleans the single associations by removing empty arrays.
-    
+
     Parameters
     ----------
     associtations : list of np.ndarray
         List of associations to clean.
-    
+
     Returns
     -------
     None
@@ -828,7 +1153,9 @@ def clean_singles(associtations: list[np.ndarray]) -> None:
         associtations.pop(i)
 
 
-def remove_peaks_tolerance(up_peaks, idx_dist, idx_time, mask_resi, snr, dist_tol=0, dt_tol=10):
+def remove_peaks_tolerance(
+    up_peaks, idx_dist, idx_time, mask_resi, snr, dist_tol=0, dt_tol=10
+):
     """
     Removes peaks from up_peaks that are close (in index space) to (dist, time) values.
 
@@ -868,90 +1195,80 @@ def remove_peaks_tolerance(up_peaks, idx_dist, idx_time, mask_resi, snr, dist_to
 
 def save_assoc_deprecated(
     filename,
-    pair_assoc, pair_loc,
-    associations, localizations,
-    n_used_hyperbolas, n_rejected_hyperbolas,
-    s_used_hyperbolas, s_rejected_hyperbolas,
-    n_rejected_list, s_rejected_list,
-    n_ds, s_ds,
-    dt_kde, bin_width, dt_tol,
-    n_shape_x, s_shape_x,
-    dt_sel, w_eval, iterations
+    pair_assoc,
+    pair_loc,
+    associations,
+    localizations,
+    n_used_hyperbolas,
+    n_rejected_hyperbolas,
+    s_used_hyperbolas,
+    s_rejected_hyperbolas,
+    n_rejected_list,
+    s_rejected_list,
+    n_ds,
+    s_ds,
+    dt_kde,
+    bin_width,
+    dt_tol,
+    n_shape_x,
+    s_shape_x,
+    dt_sel,
+    w_eval,
+    iterations,
 ):
-    nhf_assoc_list_pair, nlf_assoc_list_pair, shf_assoc_list_pair, slf_assoc_list_pair = pair_assoc
+    (
+        nhf_assoc_list_pair,
+        nlf_assoc_list_pair,
+        shf_assoc_list_pair,
+        slf_assoc_list_pair,
+    ) = pair_assoc
     nhf_pair_loc, nlf_pair_loc, shf_pair_loc, slf_pair_loc = pair_loc
-    nhf_associated_list, nlf_associated_list, shf_associated_list, slf_associated_list = associations
-    nhf_localizations, nlf_localizations, shf_localizations, slf_localizations = localizations
+    (
+        nhf_associated_list,
+        nlf_associated_list,
+        shf_associated_list,
+        slf_associated_list,
+    ) = associations
+    nhf_localizations, nlf_localizations, shf_localizations, slf_localizations = (
+        localizations
+    )
 
     results = {
         "assoc_pair": {
-            "north": {
-                "hf": nhf_assoc_list_pair,
-                "lf": nlf_assoc_list_pair
-            },
-            "south": {
-                "hf": shf_assoc_list_pair,
-                "lf": slf_assoc_list_pair
-            }
+            "north": {"hf": nhf_assoc_list_pair, "lf": nlf_assoc_list_pair},
+            "south": {"hf": shf_assoc_list_pair, "lf": slf_assoc_list_pair},
         },
         "pair_loc": {
-            "north": {
-                "hf": nhf_pair_loc,
-                "lf": nlf_pair_loc
-            },
-            "south": {
-                "hf": shf_pair_loc,
-                "lf": slf_pair_loc
-            }
+            "north": {"hf": nhf_pair_loc, "lf": nlf_pair_loc},
+            "south": {"hf": shf_pair_loc, "lf": slf_pair_loc},
         },
         "assoc": {
-            "north": {
-                "hf": nhf_associated_list,
-                "lf": nlf_associated_list
-            },
-            "south": {
-                "hf": shf_associated_list,
-                "lf": slf_associated_list
-            }
+            "north": {"hf": nhf_associated_list, "lf": nlf_associated_list},
+            "south": {"hf": shf_associated_list, "lf": slf_associated_list},
         },
         "localizations": {
-            "north": {
-                "hf": nhf_localizations,
-                "lf": nlf_localizations
-            },
-            "south": {
-                "hf": shf_localizations,
-                "lf": slf_localizations
-            }
+            "north": {"hf": nhf_localizations, "lf": nlf_localizations},
+            "south": {"hf": shf_localizations, "lf": slf_localizations},
         },
         "hyperbolas": {
-            "north": {
-                "used": n_used_hyperbolas,
-                "rejected": n_rejected_hyperbolas
-            },
-            "south": {
-                "used": s_used_hyperbolas,
-                "rejected": s_rejected_hyperbolas
-            }
+            "north": {"used": n_used_hyperbolas, "rejected": n_rejected_hyperbolas},
+            "south": {"used": s_used_hyperbolas, "rejected": s_rejected_hyperbolas},
         },
-        "rejected": {
-            "north": n_rejected_list,
-            "south": s_rejected_list    
-        },
+        "rejected": {"north": n_rejected_list, "south": s_rejected_list},
         "metadata": {
             "north": dict(n_ds.attrs),
             "south": dict(s_ds.attrs),
             "assoc_meta": {
-                "dt_kde" : dt_kde,
-                "bin_width" : bin_width,
-                "dt_tol" : dt_tol,
-                "n_shape_x" : n_shape_x,
-                "s_shape_x" : s_shape_x,
-                "dt_sel" : dt_sel,
-                "w_eval" : w_eval,
-                "iterations" : iterations
-            }
-        }
+                "dt_kde": dt_kde,
+                "bin_width": bin_width,
+                "dt_tol": dt_tol,
+                "n_shape_x": n_shape_x,
+                "s_shape_x": s_shape_x,
+                "dt_sel": dt_sel,
+                "w_eval": w_eval,
+                "iterations": iterations,
+            },
+        },
     }
 
     with open(filename, "wb") as f:
@@ -960,225 +1277,266 @@ def save_assoc_deprecated(
 
 def save_assoc(
     filename,
-    pair_assoc, pair_loc,
-    associations, localizations,
-    n_used_hyperbolas, n_rejected_hyperbolas,
-    s_used_hyperbolas, s_rejected_hyperbolas,
-    n_rejected_list, s_rejected_list,
-    n_ds, s_ds,
-    dt_kde, bin_width, dt_tol,
-    n_shape_x, s_shape_x,
-    dt_sel, w_eval, iterations
+    pair_assoc,
+    pair_loc,
+    associations,
+    localizations,
+    n_used_hyperbolas,
+    n_rejected_hyperbolas,
+    s_used_hyperbolas,
+    s_rejected_hyperbolas,
+    n_rejected_list,
+    s_rejected_list,
+    n_ds,
+    s_ds,
+    dt_kde,
+    bin_width,
+    dt_tol,
+    n_shape_x,
+    s_shape_x,
+    dt_sel,
+    w_eval,
+    iterations,
 ):
     """Save association results to HDF5 file with compression.
-    
+
     File size reduction: typically 30-70% smaller than pickle.
     Compression: gzip level 4 (good balance of speed/size).
     """
-    nhf_assoc_list_pair, nlf_assoc_list_pair, shf_assoc_list_pair, slf_assoc_list_pair = pair_assoc
+    (
+        nhf_assoc_list_pair,
+        nlf_assoc_list_pair,
+        shf_assoc_list_pair,
+        slf_assoc_list_pair,
+    ) = pair_assoc
     nhf_pair_loc, nlf_pair_loc, shf_pair_loc, slf_pair_loc = pair_loc
-    nhf_associated_list, nlf_associated_list, shf_associated_list, slf_associated_list = associations
-    nhf_localizations, nlf_localizations, shf_localizations, slf_localizations = localizations
+    (
+        nhf_associated_list,
+        nlf_associated_list,
+        shf_associated_list,
+        slf_associated_list,
+    ) = associations
+    nhf_localizations, nlf_localizations, shf_localizations, slf_localizations = (
+        localizations
+    )
 
-    with h5py.File(filename, 'w') as f:
+    with h5py.File(filename, "w") as f:
         # Helper function to save list of arrays
         def save_list_of_arrays(group, data_list, name):
             """Save a list of numpy arrays as indexed datasets."""
             subgrp = group.create_group(name)
-            subgrp.attrs['n_items'] = len(data_list)
+            subgrp.attrs["n_items"] = len(data_list)
             for i, arr in enumerate(data_list):
-                if arr is not None and hasattr(arr, 'shape'):
+                if arr is not None and hasattr(arr, "shape"):
                     if arr.size > 0:
-                        subgrp.create_dataset(f'item_{i}', data=arr, compression='gzip', compression_opts=4)
+                        subgrp.create_dataset(
+                            f"item_{i}",
+                            data=arr,
+                            compression="gzip",
+                            compression_opts=4,
+                        )
                     else:
-                        subgrp.create_dataset(f'item_{i}', data=np.array([]), dtype=arr.dtype)
+                        subgrp.create_dataset(
+                            f"item_{i}", data=np.array([]), dtype=arr.dtype
+                        )
                 else:
                     # Store None as empty dataset with special attribute
-                    subgrp.create_dataset(f'item_{i}', data=np.array([]))
-                    subgrp[f'item_{i}'].attrs['is_none'] = True
-        
+                    subgrp.create_dataset(f"item_{i}", data=np.array([]))
+                    subgrp[f"item_{i}"].attrs["is_none"] = True
+
         # Save assoc_pair data
-        assoc_pair_grp = f.create_group('assoc_pair')
-        for cable, hf_data, lf_data in [('north', nhf_assoc_list_pair, nlf_assoc_list_pair),
-                                         ('south', shf_assoc_list_pair, slf_assoc_list_pair)]:
+        assoc_pair_grp = f.create_group("assoc_pair")
+        for cable, hf_data, lf_data in [
+            ("north", nhf_assoc_list_pair, nlf_assoc_list_pair),
+            ("south", shf_assoc_list_pair, slf_assoc_list_pair),
+        ]:
             cable_grp = assoc_pair_grp.create_group(cable)
-            save_list_of_arrays(cable_grp, hf_data, 'hf')
-            save_list_of_arrays(cable_grp, lf_data, 'lf')
-        
+            save_list_of_arrays(cable_grp, hf_data, "hf")
+            save_list_of_arrays(cable_grp, lf_data, "lf")
+
         # Save pair_loc data
-        pair_loc_grp = f.create_group('pair_loc')
-        for cable, hf_data, lf_data in [('north', nhf_pair_loc, nlf_pair_loc),
-                                         ('south', shf_pair_loc, slf_pair_loc)]:
+        pair_loc_grp = f.create_group("pair_loc")
+        for cable, hf_data, lf_data in [
+            ("north", nhf_pair_loc, nlf_pair_loc),
+            ("south", shf_pair_loc, slf_pair_loc),
+        ]:
             cable_grp = pair_loc_grp.create_group(cable)
-            save_list_of_arrays(cable_grp, hf_data, 'hf')
-            save_list_of_arrays(cable_grp, lf_data, 'lf')
-        
+            save_list_of_arrays(cable_grp, hf_data, "hf")
+            save_list_of_arrays(cable_grp, lf_data, "lf")
+
         # Save assoc data
-        assoc_grp = f.create_group('assoc')
-        for cable, hf_data, lf_data in [('north', nhf_associated_list, nlf_associated_list),
-                                         ('south', shf_associated_list, slf_associated_list)]:
+        assoc_grp = f.create_group("assoc")
+        for cable, hf_data, lf_data in [
+            ("north", nhf_associated_list, nlf_associated_list),
+            ("south", shf_associated_list, slf_associated_list),
+        ]:
             cable_grp = assoc_grp.create_group(cable)
-            save_list_of_arrays(cable_grp, hf_data, 'hf')
-            save_list_of_arrays(cable_grp, lf_data, 'lf')
-        
+            save_list_of_arrays(cable_grp, hf_data, "hf")
+            save_list_of_arrays(cable_grp, lf_data, "lf")
+
         # Save localizations data
-        loc_grp = f.create_group('localizations')
-        for cable, hf_data, lf_data in [('north', nhf_localizations, nlf_localizations),
-                                         ('south', shf_localizations, slf_localizations)]:
+        loc_grp = f.create_group("localizations")
+        for cable, hf_data, lf_data in [
+            ("north", nhf_localizations, nlf_localizations),
+            ("south", shf_localizations, slf_localizations),
+        ]:
             cable_grp = loc_grp.create_group(cable)
-            save_list_of_arrays(cable_grp, hf_data, 'hf')
-            save_list_of_arrays(cable_grp, lf_data, 'lf')
-        
+            save_list_of_arrays(cable_grp, hf_data, "hf")
+            save_list_of_arrays(cable_grp, lf_data, "lf")
+
         # Save hyperbolas
-        hyp_grp = f.create_group('hyperbolas')
-        for cable, used, rejected in [('north', n_used_hyperbolas, n_rejected_hyperbolas),
-                                       ('south', s_used_hyperbolas, s_rejected_hyperbolas)]:
+        hyp_grp = f.create_group("hyperbolas")
+        for cable, used, rejected in [
+            ("north", n_used_hyperbolas, n_rejected_hyperbolas),
+            ("south", s_used_hyperbolas, s_rejected_hyperbolas),
+        ]:
             cable_grp = hyp_grp.create_group(cable)
-            save_list_of_arrays(cable_grp, used, 'used')
-            save_list_of_arrays(cable_grp, rejected, 'rejected')
-        
+            save_list_of_arrays(cable_grp, used, "used")
+            save_list_of_arrays(cable_grp, rejected, "rejected")
+
         # Save rejected lists
-        rej_grp = f.create_group('rejected')
-        save_list_of_arrays(rej_grp, n_rejected_list, 'north')
-        save_list_of_arrays(rej_grp, s_rejected_list, 'south')
-        
+        rej_grp = f.create_group("rejected")
+        save_list_of_arrays(rej_grp, n_rejected_list, "north")
+        save_list_of_arrays(rej_grp, s_rejected_list, "south")
+
         # Save metadata
-        meta_grp = f.create_group('metadata')
-        
+        meta_grp = f.create_group("metadata")
+
         # Save dataset attributes
-        north_meta = meta_grp.create_group('north')
+        north_meta = meta_grp.create_group("north")
         for key, value in n_ds.attrs.items():
             try:
                 north_meta.attrs[key] = value
             except (TypeError, ValueError):
                 # If value can't be stored as HDF5 attribute, convert to string
                 north_meta.attrs[key] = str(value)
-        
-        south_meta = meta_grp.create_group('south')
+
+        south_meta = meta_grp.create_group("south")
         for key, value in s_ds.attrs.items():
             try:
                 south_meta.attrs[key] = value
             except (TypeError, ValueError):
                 south_meta.attrs[key] = str(value)
-        
+
         # Save association metadata
-        assoc_meta = meta_grp.create_group('assoc_meta')
-        assoc_meta.attrs['dt_kde'] = dt_kde
-        assoc_meta.attrs['bin_width'] = bin_width
-        assoc_meta.attrs['dt_tol'] = dt_tol
-        assoc_meta.attrs['n_shape_x'] = n_shape_x
-        assoc_meta.attrs['s_shape_x'] = s_shape_x
-        assoc_meta.attrs['dt_sel'] = dt_sel
-        assoc_meta.attrs['w_eval'] = w_eval
-        assoc_meta.attrs['iterations'] = iterations
+        assoc_meta = meta_grp.create_group("assoc_meta")
+        assoc_meta.attrs["dt_kde"] = dt_kde
+        assoc_meta.attrs["bin_width"] = bin_width
+        assoc_meta.attrs["dt_tol"] = dt_tol
+        assoc_meta.attrs["n_shape_x"] = n_shape_x
+        assoc_meta.attrs["s_shape_x"] = s_shape_x
+        assoc_meta.attrs["dt_sel"] = dt_sel
+        assoc_meta.attrs["w_eval"] = w_eval
+        assoc_meta.attrs["iterations"] = iterations
 
 
 def load_assoc(filename):
     """Load association results from HDF5 file.
-    
+
     Returns
     -------
     dict
         Dictionary with the same structure as saved by save_assoc().
     """
+
     def load_list_of_arrays(group):
         """Load a list of numpy arrays from indexed datasets."""
-        n_items = group.attrs['n_items']
+        n_items = group.attrs["n_items"]
         result = []
         for i in range(n_items):
-            dataset = group[f'item_{i}']
-            if dataset.attrs.get('is_none', False):
+            dataset = group[f"item_{i}"]
+            if dataset.attrs.get("is_none", False):
                 result.append(None)
             else:
                 result.append(dataset[:])
         return result
-    
-    with h5py.File(filename, 'r') as f:
+
+    with h5py.File(filename, "r") as f:
         # Load assoc_pair
         assoc_pair = {
-            'north': {
-                'hf': load_list_of_arrays(f['assoc_pair/north/hf']),
-                'lf': load_list_of_arrays(f['assoc_pair/north/lf'])
+            "north": {
+                "hf": load_list_of_arrays(f["assoc_pair/north/hf"]),
+                "lf": load_list_of_arrays(f["assoc_pair/north/lf"]),
             },
-            'south': {
-                'hf': load_list_of_arrays(f['assoc_pair/south/hf']),
-                'lf': load_list_of_arrays(f['assoc_pair/south/lf'])
-            }
+            "south": {
+                "hf": load_list_of_arrays(f["assoc_pair/south/hf"]),
+                "lf": load_list_of_arrays(f["assoc_pair/south/lf"]),
+            },
         }
-        
+
         # Load pair_loc
         pair_loc = {
-            'north': {
-                'hf': load_list_of_arrays(f['pair_loc/north/hf']),
-                'lf': load_list_of_arrays(f['pair_loc/north/lf'])
+            "north": {
+                "hf": load_list_of_arrays(f["pair_loc/north/hf"]),
+                "lf": load_list_of_arrays(f["pair_loc/north/lf"]),
             },
-            'south': {
-                'hf': load_list_of_arrays(f['pair_loc/south/hf']),
-                'lf': load_list_of_arrays(f['pair_loc/south/lf'])
-            }
+            "south": {
+                "hf": load_list_of_arrays(f["pair_loc/south/hf"]),
+                "lf": load_list_of_arrays(f["pair_loc/south/lf"]),
+            },
         }
-        
+
         # Load assoc
         assoc = {
-            'north': {
-                'hf': load_list_of_arrays(f['assoc/north/hf']),
-                'lf': load_list_of_arrays(f['assoc/north/lf'])
+            "north": {
+                "hf": load_list_of_arrays(f["assoc/north/hf"]),
+                "lf": load_list_of_arrays(f["assoc/north/lf"]),
             },
-            'south': {
-                'hf': load_list_of_arrays(f['assoc/south/hf']),
-                'lf': load_list_of_arrays(f['assoc/south/lf'])
-            }
+            "south": {
+                "hf": load_list_of_arrays(f["assoc/south/hf"]),
+                "lf": load_list_of_arrays(f["assoc/south/lf"]),
+            },
         }
-        
+
         # Load localizations
         localizations = {
-            'north': {
-                'hf': load_list_of_arrays(f['localizations/north/hf']),
-                'lf': load_list_of_arrays(f['localizations/north/lf'])
+            "north": {
+                "hf": load_list_of_arrays(f["localizations/north/hf"]),
+                "lf": load_list_of_arrays(f["localizations/north/lf"]),
             },
-            'south': {
-                'hf': load_list_of_arrays(f['localizations/south/hf']),
-                'lf': load_list_of_arrays(f['localizations/south/lf'])
-            }
+            "south": {
+                "hf": load_list_of_arrays(f["localizations/south/hf"]),
+                "lf": load_list_of_arrays(f["localizations/south/lf"]),
+            },
         }
-        
+
         # Load hyperbolas
         hyperbolas = {
-            'north': {
-                'used': load_list_of_arrays(f['hyperbolas/north/used']),
-                'rejected': load_list_of_arrays(f['hyperbolas/north/rejected'])
+            "north": {
+                "used": load_list_of_arrays(f["hyperbolas/north/used"]),
+                "rejected": load_list_of_arrays(f["hyperbolas/north/rejected"]),
             },
-            'south': {
-                'used': load_list_of_arrays(f['hyperbolas/south/used']),
-                'rejected': load_list_of_arrays(f['hyperbolas/south/rejected'])
-            }
+            "south": {
+                "used": load_list_of_arrays(f["hyperbolas/south/used"]),
+                "rejected": load_list_of_arrays(f["hyperbolas/south/rejected"]),
+            },
         }
-        
+
         # Load rejected
         rejected = {
-            'north': load_list_of_arrays(f['rejected/north']),
-            'south': load_list_of_arrays(f['rejected/south'])
+            "north": load_list_of_arrays(f["rejected/north"]),
+            "south": load_list_of_arrays(f["rejected/south"]),
         }
-        
+
         # Load metadata
         metadata = {
-            'north': dict(f['metadata/north'].attrs),
-            'south': dict(f['metadata/south'].attrs),
-            'assoc_meta': dict(f['metadata/assoc_meta'].attrs)
+            "north": dict(f["metadata/north"].attrs),
+            "south": dict(f["metadata/south"].attrs),
+            "assoc_meta": dict(f["metadata/assoc_meta"].attrs),
         }
-        
+
         return {
-            'assoc_pair': assoc_pair,
-            'pair_loc': pair_loc,
-            'assoc': assoc,
-            'localizations': localizations,
-            'hyperbolas': hyperbolas,
-            'rejected': rejected,
-            'metadata': metadata
+            "assoc_pair": assoc_pair,
+            "pair_loc": pair_loc,
+            "assoc": assoc,
+            "localizations": localizations,
+            "hyperbolas": hyperbolas,
+            "rejected": rejected,
+            "metadata": metadata,
         }
 
 
-## Plotting functions ----------------------------------------------------- 
+## Plotting functions -----------------------------------------------------
 
 
 def plot_peaks(peaks, SNR, selected_channels_m, dx, fs):
@@ -1197,40 +1555,78 @@ def plot_peaks(peaks, SNR, selected_channels_m, dx, fs):
     fig, axes = plt.subplots(2, 2, figsize=(20, 16), sharex=True, sharey=False)
 
     # First subplot
-    sc1 = axes[0, 0].scatter(nhf_peaks[1][:] / fs, (n_selected_channels_m[0] + nhf_peaks[0][:] * dx) * 1e-3, 
-                            c=nhf_SNR, cmap=cmap, norm=norm, s=nhf_SNR)
-    axes[0, 0].set_title('North Cable - HF')
-    axes[0, 0].set_ylabel('Distance [km]')
-    axes[0, 0].set_ylim(n_selected_channels_m[0] * 1e-3, n_selected_channels_m[1] * 1e-3)
-    axes[0, 0].grid(linestyle='--', alpha=0.5)
+    sc1 = axes[0, 0].scatter(
+        nhf_peaks[1][:] / fs,
+        (n_selected_channels_m[0] + nhf_peaks[0][:] * dx) * 1e-3,
+        c=nhf_SNR,
+        cmap=cmap,
+        norm=norm,
+        s=nhf_SNR,
+    )
+    axes[0, 0].set_title("North Cable - HF")
+    axes[0, 0].set_ylabel("Distance [km]")
+    axes[0, 0].set_ylim(
+        n_selected_channels_m[0] * 1e-3, n_selected_channels_m[1] * 1e-3
+    )
+    axes[0, 0].grid(linestyle="--", alpha=0.5)
 
     # Second subplot
-    sc2 = axes[0, 1].scatter(nlf_peaks[1][:] / fs, (n_selected_channels_m[0] + nlf_peaks[0][:] * dx) * 1e-3, 
-                            c=nlf_SNR, cmap=cmap, norm=norm, s=nlf_SNR)
-    axes[0, 1].set_title('North Cable - LF')
-    axes[0, 1].set_ylim(n_selected_channels_m[0] * 1e-3, n_selected_channels_m[1] * 1e-3)
-    axes[0, 1].grid(linestyle='--', alpha=0.5)
+    sc2 = axes[0, 1].scatter(
+        nlf_peaks[1][:] / fs,
+        (n_selected_channels_m[0] + nlf_peaks[0][:] * dx) * 1e-3,
+        c=nlf_SNR,
+        cmap=cmap,
+        norm=norm,
+        s=nlf_SNR,
+    )
+    axes[0, 1].set_title("North Cable - LF")
+    axes[0, 1].set_ylim(
+        n_selected_channels_m[0] * 1e-3, n_selected_channels_m[1] * 1e-3
+    )
+    axes[0, 1].grid(linestyle="--", alpha=0.5)
 
     # Third subplot
-    sc3 = axes[1, 0].scatter(shf_peaks[1][:] / fs, (s_selected_channels_m[0] + shf_peaks[0][:] * dx) * 1e-3, 
-                            c=shf_SNR, cmap=cmap, norm=norm, s=shf_SNR)
-    axes[1, 0].set_title('South Cable - HF')
-    axes[1, 0].set_xlabel('Time [s]')
-    axes[1, 0].set_ylabel('Distance [km]')
-    axes[1, 0].set_ylim(s_selected_channels_m[0] * 1e-3, s_selected_channels_m[1] * 1e-3)
-    axes[1, 0].grid(linestyle='--', alpha=0.5)
+    sc3 = axes[1, 0].scatter(
+        shf_peaks[1][:] / fs,
+        (s_selected_channels_m[0] + shf_peaks[0][:] * dx) * 1e-3,
+        c=shf_SNR,
+        cmap=cmap,
+        norm=norm,
+        s=shf_SNR,
+    )
+    axes[1, 0].set_title("South Cable - HF")
+    axes[1, 0].set_xlabel("Time [s]")
+    axes[1, 0].set_ylabel("Distance [km]")
+    axes[1, 0].set_ylim(
+        s_selected_channels_m[0] * 1e-3, s_selected_channels_m[1] * 1e-3
+    )
+    axes[1, 0].grid(linestyle="--", alpha=0.5)
 
     # Fourth subplot
-    sc4 = axes[1, 1].scatter(slf_peaks[1][:] / fs, (s_selected_channels_m[0] + slf_peaks[0][:] * dx) * 1e-3, 
-                            c=slf_SNR, cmap=cmap, norm=norm, s=slf_SNR)
-    axes[1, 1].set_title('South Cable - LF')
-    axes[1, 1].set_xlabel('Time [s]')
-    axes[1, 1].set_ylim(s_selected_channels_m[0] * 1e-3, s_selected_channels_m[1] * 1e-3)
-    axes[1, 1].grid(linestyle='--', alpha=0.5)
+    sc4 = axes[1, 1].scatter(
+        slf_peaks[1][:] / fs,
+        (s_selected_channels_m[0] + slf_peaks[0][:] * dx) * 1e-3,
+        c=slf_SNR,
+        cmap=cmap,
+        norm=norm,
+        s=slf_SNR,
+    )
+    axes[1, 1].set_title("South Cable - LF")
+    axes[1, 1].set_xlabel("Time [s]")
+    axes[1, 1].set_ylim(
+        s_selected_channels_m[0] * 1e-3, s_selected_channels_m[1] * 1e-3
+    )
+    axes[1, 1].grid(linestyle="--", alpha=0.5)
 
     # Create a single colorbar for all subplots
-    cbar = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap), ax=axes, orientation='vertical', fraction=0.02, pad=0.02)
-    cbar.set_label('SNR')
+    cbar = fig.colorbar(
+        cm.ScalarMappable(norm=norm, cmap=cmap),
+        ax=axes,
+        orientation="vertical",
+        fraction=0.02,
+        pad=0.02,
+    )
+    cbar.set_label("SNR")
 
     return fig
 
@@ -1242,8 +1638,8 @@ def plot_tpicks_resolved(peaks, SNR, selected_channels_m, dx, fs):
     n_selected_channels_m, s_selected_channels_m = selected_channels_m
 
     # Calculate height ratios based on y-range
-    y_range_north = (n_selected_channels_m[1] - n_selected_channels_m[0])  # meters
-    y_range_south = (s_selected_channels_m[1] - s_selected_channels_m[0])  # meters
+    y_range_north = n_selected_channels_m[1] - n_selected_channels_m[0]  # meters
+    y_range_south = s_selected_channels_m[1] - s_selected_channels_m[0]  # meters
     height_ratio = y_range_south / y_range_north
 
     # Determine common color scale
@@ -1254,223 +1650,502 @@ def plot_tpicks_resolved(peaks, SNR, selected_channels_m, dx, fs):
     cmap_lf = cm.viridis  # Define a different colormap for LF
 
     # Create figure
-    fig, axes = plt.subplots(2, 1, figsize=(10, 16), sharex=True, sharey=False, constrained_layout=True, gridspec_kw={'height_ratios': [1, height_ratio]})
+    fig, axes = plt.subplots(
+        2,
+        1,
+        figsize=(10, 16),
+        sharex=True,
+        sharey=False,
+        constrained_layout=True,
+        gridspec_kw={"height_ratios": [1, height_ratio]},
+    )
 
     # First subplot
-    sc1 = axes[0].scatter(nhf_peaks[1][:] / fs, (n_selected_channels_m[0] + nhf_peaks[0][:] * dx) * 1e-3, 
-                            c=nhf_SNR, cmap=cmap_hf, norm=norm, s=nhf_SNR, rasterized=True)
-    sc2 = axes[0].scatter(nlf_peaks[1][:] / fs, (n_selected_channels_m[0] + nlf_peaks[0][:] * dx) * 1e-3, 
-                            c=nlf_SNR, cmap=cmap_lf, norm=norm, s=nlf_SNR, rasterized=True)
-    axes[0].set_title('North Cable')
-    axes[0].set_ylabel('Distance [km]')
+    sc1 = axes[0].scatter(
+        nhf_peaks[1][:] / fs,
+        (n_selected_channels_m[0] + nhf_peaks[0][:] * dx) * 1e-3,
+        c=nhf_SNR,
+        cmap=cmap_hf,
+        norm=norm,
+        s=nhf_SNR,
+        rasterized=True,
+    )
+    sc2 = axes[0].scatter(
+        nlf_peaks[1][:] / fs,
+        (n_selected_channels_m[0] + nlf_peaks[0][:] * dx) * 1e-3,
+        c=nlf_SNR,
+        cmap=cmap_lf,
+        norm=norm,
+        s=nlf_SNR,
+        rasterized=True,
+    )
+    axes[0].set_title("North Cable")
+    axes[0].set_ylabel("Distance [km]")
     axes[0].set_ylim(n_selected_channels_m[0] * 1e-3, n_selected_channels_m[1] * 1e-3)
-    axes[0].grid(linestyle='--', alpha=0.5)
-    axes[0].set_aspect('equal', adjustable='box')
+    axes[0].grid(linestyle="--", alpha=0.5)
+    axes[0].set_aspect("equal", adjustable="box")
 
     # Second subplot
-    sc3 = axes[1].scatter(shf_peaks[1][:] / fs, (s_selected_channels_m[0] + shf_peaks[0][:] * dx) * 1e-3, 
-                            c=shf_SNR, cmap=cmap_hf, norm=norm, s=shf_SNR, rasterized=True)
-    sc4 = axes[1].scatter(slf_peaks[1][:] / fs, (s_selected_channels_m[0] + slf_peaks[0][:] * dx) * 1e-3, 
-                            c=slf_SNR, cmap=cmap_lf, norm=norm, s=slf_SNR, rasterized=True)
-    axes[1].set_title('South Cable')
-    axes[1].set_xlabel('Time [s]')
-    axes[1].set_ylabel('Distance [km]')
+    sc3 = axes[1].scatter(
+        shf_peaks[1][:] / fs,
+        (s_selected_channels_m[0] + shf_peaks[0][:] * dx) * 1e-3,
+        c=shf_SNR,
+        cmap=cmap_hf,
+        norm=norm,
+        s=shf_SNR,
+        rasterized=True,
+    )
+    sc4 = axes[1].scatter(
+        slf_peaks[1][:] / fs,
+        (s_selected_channels_m[0] + slf_peaks[0][:] * dx) * 1e-3,
+        c=slf_SNR,
+        cmap=cmap_lf,
+        norm=norm,
+        s=slf_SNR,
+        rasterized=True,
+    )
+    axes[1].set_title("South Cable")
+    axes[1].set_xlabel("Time [s]")
+    axes[1].set_ylabel("Distance [km]")
     axes[1].set_ylim(s_selected_channels_m[0] * 1e-3, s_selected_channels_m[1] * 1e-3)
-    axes[1].grid(linestyle='--', alpha=0.5)
-    axes[1].set_aspect('equal', adjustable='box')
+    axes[1].grid(linestyle="--", alpha=0.5)
+    axes[1].set_aspect("equal", adjustable="box")
 
     # Create a single colorbar for all subplots
-    cbar1 = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap_hf), ax=axes[1], orientation='horizontal', fraction=0.04, pad=0.02)
-    cbar1.set_label('SNR - HF picks', loc='left')
-    cbar2 = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap_lf), ax=axes[1], orientation='horizontal', fraction=0.04, pad=0.02)
-    cbar2.set_label('SNR - LF picks', loc='left')
+    cbar1 = fig.colorbar(
+        cm.ScalarMappable(norm=norm, cmap=cmap_hf),
+        ax=axes[1],
+        orientation="horizontal",
+        fraction=0.04,
+        pad=0.02,
+    )
+    cbar1.set_label("SNR - HF picks", loc="left")
+    cbar2 = fig.colorbar(
+        cm.ScalarMappable(norm=norm, cmap=cmap_lf),
+        ax=axes[1],
+        orientation="horizontal",
+        fraction=0.04,
+        pad=0.02,
+    )
+    cbar2.set_label("SNR - LF picks", loc="left")
     cbar2.set_ticks([])  # Remove ticks from upper colorbar
 
     return fig
 
 
-def plot_reject_pick(peaks, longi_offset, dist, dx, associated_list, rejected_list, rejected_hyperbolas, fs):
+def plot_reject_pick(
+    peaks,
+    longi_offset,
+    dist,
+    dx,
+    associated_list,
+    rejected_list,
+    rejected_hyperbolas,
+    fs,
+):
     # Plot the selected picks alongside the original picks
-    fig=plt.figure(figsize=(20,8))
+    fig = plt.figure(figsize=(20, 8))
     plt.subplot(2, 2, 1)
-    plt.scatter(peaks[1][:] / fs, (longi_offset + peaks[0][:]) * dx * 1e-3, label='HF', s=0.5)
-    plt.xlabel('Time [s]')
-    plt.ylabel('Distance [km]')
+    plt.scatter(
+        peaks[1][:] / fs, (longi_offset + peaks[0][:]) * dx * 1e-3, label="HF", s=0.5
+    )
+    plt.xlabel("Time [s]")
+    plt.ylabel("Distance [km]")
     plt.subplot(2, 2, 2)
     for select in associated_list:
-        plt.scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3, label='LF', s=0.5)
-    plt.xlabel('Time [s]') 
+        plt.scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            label="LF",
+            s=0.5,
+        )
+    plt.xlabel("Time [s]")
     # Plot the deleted hyperbolas
     plt.subplot(2, 2, 3)
     for hyp in rejected_hyperbolas:
-        plt.plot(hyp, dist/1e3, label='Rejected hyperbola')
-    plt.xlabel('Time [s]')
-    plt.ylabel('Distance [km]')
+        plt.plot(hyp, dist / 1e3, label="Rejected hyperbola")
+    plt.xlabel("Time [s]")
+    plt.ylabel("Distance [km]")
     # plot the rejected picks
     plt.subplot(2, 2, 4)
     for select in rejected_list:
-        plt.scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3, label='LF', s=0.5)
-    plt.xlabel('Time [s]')
+        plt.scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            label="LF",
+            s=0.5,
+        )
+    plt.xlabel("Time [s]")
     return fig
 
 
-def plot_associated_bicable(n_peaks, s_peaks, longi_offset, pair_assoc_list, pair_loc_list, associated_list, localizations,
-                            n_cable_pos, s_cable_pos, n_dist, s_dist, dx, c0, fs):
-    
+def plot_associated_bicable(
+    n_peaks,
+    s_peaks,
+    longi_offset,
+    pair_assoc_list,
+    pair_loc_list,
+    associated_list,
+    localizations,
+    n_cable_pos,
+    s_cable_pos,
+    n_dist,
+    s_dist,
+    dx,
+    c0,
+    fs,
+):
+
     nhf_assoc_pair, nlf_assoc_pair, shf_assoc_pair, slf_assoc_pair = pair_assoc_list
     nhf_assoc_list, nlf_assoc_list, shf_assoc_list, slf_assoc_list = associated_list
     nhf_loc_pair, nlf_loc_pair, shf_loc_pair, slf_loc_pair = pair_loc_list
-    nhf_localizations, nlf_localizations, shf_localizations, slf_localizations = localizations
-    fig, axes = plt.subplots(2, 2, figsize=(20, 16), sharex=True, sharey=False, constrained_layout=True)
+    nhf_localizations, nlf_localizations, shf_localizations, slf_localizations = (
+        localizations
+    )
+    fig, axes = plt.subplots(
+        2, 2, figsize=(20, 16), sharex=True, sharey=False, constrained_layout=True
+    )
 
     # Get color palettes
-    hf_palette = plt.get_cmap('YlOrRd_r')
-    lf_palette = plt.get_cmap('YlGnBu_r')
+    hf_palette = plt.get_cmap("YlOrRd_r")
+    lf_palette = plt.get_cmap("YlGnBu_r")
 
     # Assign color per HF/LF event
-    nbhf = len(nhf_assoc_pair) + len(shf_assoc_pair) + len(nhf_assoc_list) + len(shf_assoc_list)
-    nblf = len(nlf_assoc_pair) + len(slf_assoc_pair) + len(nlf_assoc_list) + len(slf_assoc_list)
+    nbhf = (
+        len(nhf_assoc_pair)
+        + len(shf_assoc_pair)
+        + len(nhf_assoc_list)
+        + len(shf_assoc_list)
+    )
+    nblf = (
+        len(nlf_assoc_pair)
+        + len(slf_assoc_pair)
+        + len(nlf_assoc_list)
+        + len(slf_assoc_list)
+    )
 
     start, end = 0.0, 0.6  # Avoids part of the coolormap that is too light
 
-    hf_colors = [hf_palette(start + (end - start) * i / max(nbhf - 1, 1)) for i in range(nbhf)]
-    lf_colors = [lf_palette(start + (end - start) * i / max(nblf - 1, 1)) for i in range(nblf)]
+    hf_colors = [
+        hf_palette(start + (end - start) * i / max(nbhf - 1, 1)) for i in range(nbhf)
+    ]
+    lf_colors = [
+        lf_palette(start + (end - start) * i / max(nblf - 1, 1)) for i in range(nblf)
+    ]
 
     # First subplot — North raw picks and associated
     # -- Raw picks --
-    axes[0, 0].scatter(n_peaks[1][:] / fs, (longi_offset + n_peaks[0][:]) * dx * 1e-3,
-                       label='All peaks', s=0.5, alpha=0.2, color='tab:grey', rasterized=True)
+    axes[0, 0].scatter(
+        n_peaks[1][:] / fs,
+        (longi_offset + n_peaks[0][:]) * dx * 1e-3,
+        label="All peaks",
+        s=0.5,
+        alpha=0.2,
+        color="tab:grey",
+        rasterized=True,
+    )
     # -- Associated picks - pairs --
     for i, select in enumerate(nhf_assoc_pair):
-        axes[0, 0].scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3,
-                           color=hf_colors[i], s=10, marker='>', rasterized=True)
-        
+        axes[0, 0].scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            color=hf_colors[i],
+            s=10,
+            marker=">",
+            rasterized=True,
+        )
+
     for i, select in enumerate(nlf_assoc_pair):
-        axes[0, 0].scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3,
-                           color=lf_colors[i], s=10, marker='o', rasterized=True)
-        
+        axes[0, 0].scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            color=lf_colors[i],
+            s=10,
+            marker="o",
+            rasterized=True,
+        )
+
     # -- Associated picks - single --
     for i, select in enumerate(nhf_assoc_list):
         idx_offset = len(nhf_assoc_pair) + len(shf_assoc_pair)
-        axes[0, 0].scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3,
-                           color=hf_colors[i+idx_offset], s=10, marker='>', rasterized=True)
+        axes[0, 0].scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            color=hf_colors[i + idx_offset],
+            s=10,
+            marker=">",
+            rasterized=True,
+        )
     for i, select in enumerate(nlf_assoc_list):
         idx_offset = len(nlf_assoc_pair) + len(slf_assoc_pair)
         # print(i, idx_offset, len(nhf_assoc_pair), len(shf_assoc_pair), len(nhf_assoc_list)print(len(lf_colors), len(nlf_assoc_list)))
-        axes[0, 0].scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3,
-                           color=lf_colors[i+idx_offset], s=10, marker='o', rasterized=True)
-    axes[0, 0].set_title('North')       
-    axes[0, 0].set_ylabel('Distance [km]')
+        axes[0, 0].scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            color=lf_colors[i + idx_offset],
+            s=10,
+            marker="o",
+            rasterized=True,
+        )
+    axes[0, 0].set_title("North")
+    axes[0, 0].set_ylabel("Distance [km]")
     axes[0, 0].set_xlim(0, 70)
 
     # Second subplot — North with arrival curves
     # -- Associated picks - pairs --
     for i, select in enumerate(nhf_assoc_pair):
-        axes[0, 1].scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3,
-                           color=hf_colors[i], s=10, marker='>', rasterized=True)
-        axes[0, 1].plot(dw.loc.calc_arrival_times(nhf_loc_pair[i][-1], n_cable_pos, 
-                                                  nhf_loc_pair[i][:3], c0),
-                                                  n_dist / 1e3, color='tab:grey', ls='-', lw=2, alpha=0.7)
-                                                  
+        axes[0, 1].scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            color=hf_colors[i],
+            s=10,
+            marker=">",
+            rasterized=True,
+        )
+        axes[0, 1].plot(
+            dw.loc.calc_arrival_times(
+                nhf_loc_pair[i][-1], n_cable_pos, nhf_loc_pair[i][:3], c0
+            ),
+            n_dist / 1e3,
+            color="tab:grey",
+            ls="-",
+            lw=2,
+            alpha=0.7,
+        )
+
     for i, select in enumerate(nlf_assoc_pair):
-        axes[0, 1].scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3,
-                           color=lf_colors[i], s=10, marker='o', rasterized=True)
-        axes[0, 1].plot(dw.loc.calc_arrival_times(nlf_loc_pair[i][-1], n_cable_pos,
-                                                  nlf_loc_pair[i][:3], c0),
-                                                  n_dist / 1e3, color='tab:grey', ls='-', lw=2, alpha=0.7)
-        
+        axes[0, 1].scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            color=lf_colors[i],
+            s=10,
+            marker="o",
+            rasterized=True,
+        )
+        axes[0, 1].plot(
+            dw.loc.calc_arrival_times(
+                nlf_loc_pair[i][-1], n_cable_pos, nlf_loc_pair[i][:3], c0
+            ),
+            n_dist / 1e3,
+            color="tab:grey",
+            ls="-",
+            lw=2,
+            alpha=0.7,
+        )
+
     # -- Associated picks - single --
     for i, select in enumerate(nhf_assoc_list):
         idx_offset = len(nhf_assoc_pair) + len(shf_assoc_pair)
-        axes[0, 1].scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3,
-                           color=hf_colors[i+idx_offset], s=10, marker='>', rasterized=True)
-        axes[0, 1].plot(dw.loc.calc_arrival_times(nhf_localizations[i][-1], n_cable_pos,
-                                                  nhf_localizations[i][:3], c0),
-                                                  n_dist / 1e3, color='tab:grey', ls='-', lw=2, alpha=0.7)
-        
+        axes[0, 1].scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            color=hf_colors[i + idx_offset],
+            s=10,
+            marker=">",
+            rasterized=True,
+        )
+        axes[0, 1].plot(
+            dw.loc.calc_arrival_times(
+                nhf_localizations[i][-1], n_cable_pos, nhf_localizations[i][:3], c0
+            ),
+            n_dist / 1e3,
+            color="tab:grey",
+            ls="-",
+            lw=2,
+            alpha=0.7,
+        )
+
     for i, select in enumerate(nlf_assoc_list):
         idx_offset = len(nlf_assoc_pair) + len(slf_assoc_pair)
-        axes[0, 1].scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3,
-                           color=lf_colors[i+idx_offset], s=10, marker='o', rasterized=True)
-        axes[0, 1].plot(dw.loc.calc_arrival_times(nlf_localizations[i][-1], n_cable_pos,
-                                                  nlf_localizations[i][:3], c0),
-                        n_dist / 1e3, color='tab:grey', ls='-', lw=2, alpha=0.7)
+        axes[0, 1].scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            color=lf_colors[i + idx_offset],
+            s=10,
+            marker="o",
+            rasterized=True,
+        )
+        axes[0, 1].plot(
+            dw.loc.calc_arrival_times(
+                nlf_localizations[i][-1], n_cable_pos, nlf_localizations[i][:3], c0
+            ),
+            n_dist / 1e3,
+            color="tab:grey",
+            ls="-",
+            lw=2,
+            alpha=0.7,
+        )
     # Remove the y-axis ticks labels
     axes[0, 1].set_yticklabels([])
 
     # Third subplot — South raw picks and associated
     # -- Raw picks --
-    axes[1, 0].scatter(s_peaks[1][:] / fs, (longi_offset + s_peaks[0][:]) * dx * 1e-3,
-                       label='All peaks', s=0.5, alpha=0.2, color='tab:grey', rasterized=True)
+    axes[1, 0].scatter(
+        s_peaks[1][:] / fs,
+        (longi_offset + s_peaks[0][:]) * dx * 1e-3,
+        label="All peaks",
+        s=0.5,
+        alpha=0.2,
+        color="tab:grey",
+        rasterized=True,
+    )
     # -- Associated picks - pairs --
     for i, select in enumerate(shf_assoc_pair):
-        axes[1, 0].scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3,
-                           color=hf_colors[i], s=10, marker='>', rasterized=True)
-        
+        axes[1, 0].scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            color=hf_colors[i],
+            s=10,
+            marker=">",
+            rasterized=True,
+        )
+
     for i, select in enumerate(slf_assoc_pair):
-        axes[1, 0].scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3,
-                           color=lf_colors[i], s=10, marker='o', rasterized=True)
-        
+        axes[1, 0].scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            color=lf_colors[i],
+            s=10,
+            marker="o",
+            rasterized=True,
+        )
+
     # -- Associated picks - single --
     for i, select in enumerate(shf_assoc_list):
         idx_offset = len(nhf_assoc_pair) + len(shf_assoc_pair) + len(nhf_assoc_list)
-        axes[1, 0].scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3,
-                           color=hf_colors[i+idx_offset], s=10, marker='>', rasterized=True)
-        
+        axes[1, 0].scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            color=hf_colors[i + idx_offset],
+            s=10,
+            marker=">",
+            rasterized=True,
+        )
+
     for i, select in enumerate(slf_assoc_list):
         idx_offset = len(nlf_assoc_pair) + len(slf_assoc_pair) + len(nlf_assoc_list)
-        axes[1, 0].scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3,
-                           color=lf_colors[i+idx_offset], s=10, marker='o', rasterized=True)
-    axes[1, 0].set_title('South')
-    axes[1, 0].set_ylabel('Distance [km]')
-    axes[1, 0].set_xlabel('Time [s]')
+        axes[1, 0].scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            color=lf_colors[i + idx_offset],
+            s=10,
+            marker="o",
+            rasterized=True,
+        )
+    axes[1, 0].set_title("South")
+    axes[1, 0].set_ylabel("Distance [km]")
+    axes[1, 0].set_xlabel("Time [s]")
 
     # Fourth subplot — South with arrival curves
     # -- Associated picks - pairs --
     for i, select in enumerate(shf_assoc_pair):
-        axes[1, 1].scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3,
-                           color=hf_colors[i], s=10, marker='>', rasterized=True)
-        axes[1, 1].plot(dw.loc.calc_arrival_times(shf_loc_pair[i][-1], s_cable_pos,
-                                                  shf_loc_pair[i][:3], c0),
-                        s_dist / 1e3, color='tab:grey', ls='-', lw=2, alpha=0.7)
-        
+        axes[1, 1].scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            color=hf_colors[i],
+            s=10,
+            marker=">",
+            rasterized=True,
+        )
+        axes[1, 1].plot(
+            dw.loc.calc_arrival_times(
+                shf_loc_pair[i][-1], s_cable_pos, shf_loc_pair[i][:3], c0
+            ),
+            s_dist / 1e3,
+            color="tab:grey",
+            ls="-",
+            lw=2,
+            alpha=0.7,
+        )
+
     for i, select in enumerate(slf_assoc_pair):
-        axes[1, 1].scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3,
-                           color=lf_colors[i], s=10, marker='o', rasterized=True)
-        axes[1, 1].plot(dw.loc.calc_arrival_times(slf_loc_pair[i][-1], s_cable_pos,
-                                                  slf_loc_pair[i][:3], c0),
-                        s_dist / 1e3, color='tab:grey', ls='-', lw=2, alpha=0.7)
-        
+        axes[1, 1].scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            color=lf_colors[i],
+            s=10,
+            marker="o",
+            rasterized=True,
+        )
+        axes[1, 1].plot(
+            dw.loc.calc_arrival_times(
+                slf_loc_pair[i][-1], s_cable_pos, slf_loc_pair[i][:3], c0
+            ),
+            s_dist / 1e3,
+            color="tab:grey",
+            ls="-",
+            lw=2,
+            alpha=0.7,
+        )
+
     # -- Associated picks - single --
     for i, select in enumerate(shf_assoc_list):
         idx_offset = len(nhf_assoc_pair) + len(shf_assoc_pair) + len(nhf_assoc_list)
-        axes[1, 1].scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3,
-                           color=hf_colors[i+idx_offset], s=10, marker='>', rasterized=True)
-        axes[1, 1].plot(dw.loc.calc_arrival_times(shf_localizations[i][-1], s_cable_pos,
-                                                  shf_localizations[i][:3], c0),
-                        s_dist / 1e3, color='tab:grey', ls='-', lw=2, alpha=0.7)
-        
+        axes[1, 1].scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            color=hf_colors[i + idx_offset],
+            s=10,
+            marker=">",
+            rasterized=True,
+        )
+        axes[1, 1].plot(
+            dw.loc.calc_arrival_times(
+                shf_localizations[i][-1], s_cable_pos, shf_localizations[i][:3], c0
+            ),
+            s_dist / 1e3,
+            color="tab:grey",
+            ls="-",
+            lw=2,
+            alpha=0.7,
+        )
+
     for i, select in enumerate(slf_assoc_list):
         idx_offset = len(nlf_assoc_pair) + len(slf_assoc_pair) + len(nlf_assoc_list)
-        axes[1, 1].scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3,
-                           color=lf_colors[i+idx_offset], s=10, marker='o', rasterized=True)
-        axes[1, 1].plot(dw.loc.calc_arrival_times(slf_localizations[i][-1], s_cable_pos,
-                                                  slf_localizations[i][:3], c0),
-                        s_dist / 1e3, color='tab:grey', ls='-', lw=2, alpha=0.7)
+        axes[1, 1].scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            color=lf_colors[i + idx_offset],
+            s=10,
+            marker="o",
+            rasterized=True,
+        )
+        axes[1, 1].plot(
+            dw.loc.calc_arrival_times(
+                slf_localizations[i][-1], s_cable_pos, slf_localizations[i][:3], c0
+            ),
+            s_dist / 1e3,
+            color="tab:grey",
+            ls="-",
+            lw=2,
+            alpha=0.7,
+        )
 
-    axes[1, 1].set_xlabel('Time [s]')
+    axes[1, 1].set_xlabel("Time [s]")
     axes[1, 1].set_yticklabels([])
 
     # Add a common legend
-    hf_handle = plt.Line2D([], [], marker='>', color='w', label='HF calls',
-                           markerfacecolor='tab:red', markersize=10)
-    lf_handle = plt.Line2D([], [], marker='o', color='w', label='LF calls',
-                           markerfacecolor='tab:blue', markersize=10)
-    
+    hf_handle = plt.Line2D(
+        [],
+        [],
+        marker=">",
+        color="w",
+        label="HF calls",
+        markerfacecolor="tab:red",
+        markersize=10,
+    )
+    lf_handle = plt.Line2D(
+        [],
+        [],
+        marker="o",
+        color="w",
+        label="LF calls",
+        markerfacecolor="tab:blue",
+        markersize=10,
+    )
 
-    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
     from matplotlib.colors import ListedColormap
-    import matplotlib.patches as patches
+    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
     # Add gradient legend to one of your subplots
     gradient_values = np.linspace(start, end, 100).reshape(1, -1)
@@ -1478,59 +2153,85 @@ def plot_associated_bicable(n_peaks, s_peaks, longi_offset, pair_assoc_list, pai
     lf_cmap_custom = ListedColormap(lf_colors)
 
     # Create a parent container for the legend with frame
-    legend_container = inset_axes(axes[1, 1], width="25%", height="20%", loc='lower right',
-                                bbox_to_anchor=(0, 0.02, 1, 1), bbox_transform=axes[1, 1].transAxes)
+    legend_container = inset_axes(
+        axes[1, 1],
+        width="25%",
+        height="20%",
+        loc="lower right",
+        bbox_to_anchor=(0, 0.02, 1, 1),
+        bbox_transform=axes[1, 1].transAxes,
+    )
     legend_container.set_xlim(0, 1)
     legend_container.set_ylim(0, 1)
     legend_container.set_xticks([])
     legend_container.set_yticks([])
 
     # Add frame around the container
-    legend_container.spines['top'].set_visible(True)
-    legend_container.spines['right'].set_visible(True)
-    legend_container.spines['bottom'].set_visible(True)
-    legend_container.spines['left'].set_visible(True)
-    legend_container.spines['top'].set_linewidth(1.5)
-    legend_container.spines['right'].set_linewidth(1.5)
-    legend_container.spines['bottom'].set_linewidth(1.5)
-    legend_container.spines['left'].set_linewidth(1.5)
-    legend_container.spines['top'].set_color('black')
-    legend_container.spines['right'].set_color('black')
-    legend_container.spines['bottom'].set_color('black')
-    legend_container.spines['left'].set_color('black')
+    legend_container.spines["top"].set_visible(True)
+    legend_container.spines["right"].set_visible(True)
+    legend_container.spines["bottom"].set_visible(True)
+    legend_container.spines["left"].set_visible(True)
+    legend_container.spines["top"].set_linewidth(1.5)
+    legend_container.spines["right"].set_linewidth(1.5)
+    legend_container.spines["bottom"].set_linewidth(1.5)
+    legend_container.spines["left"].set_linewidth(1.5)
+    legend_container.spines["top"].set_color("black")
+    legend_container.spines["right"].set_color("black")
+    legend_container.spines["bottom"].set_color("black")
+    legend_container.spines["left"].set_color("black")
 
     # HF gradient bar (positioned in upper part of container)
-    hf_gradient_ax = inset_axes(legend_container, width="80%", height="35%", loc='upper center',
-                            bbox_to_anchor=(0, 0.1, 1, 0.8), bbox_transform=legend_container.transAxes)
-    hf_gradient_ax.imshow(gradient_values, aspect='auto', cmap=hf_cmap_custom)
+    hf_gradient_ax = inset_axes(
+        legend_container,
+        width="80%",
+        height="35%",
+        loc="upper center",
+        bbox_to_anchor=(0, 0.1, 1, 0.8),
+        bbox_transform=legend_container.transAxes,
+    )
+    hf_gradient_ax.imshow(gradient_values, aspect="auto", cmap=hf_cmap_custom)
     hf_gradient_ax.set_xticks([])
     hf_gradient_ax.set_yticks([])
-    hf_gradient_ax.set_title('HF calls ▷', fontsize=12, pad=4)
+    hf_gradient_ax.set_title("HF calls ▷", fontsize=12, pad=4)
 
     # LF gradient bar (positioned in lower part of container)
-    lf_gradient_ax = inset_axes(legend_container, width="80%", height="35%", loc='lower center',
-                            bbox_to_anchor=(0, 0.0, 1, 0.8), bbox_transform=legend_container.transAxes)
-    lf_gradient_ax.imshow(gradient_values, aspect='auto', cmap=lf_cmap_custom)
+    lf_gradient_ax = inset_axes(
+        legend_container,
+        width="80%",
+        height="35%",
+        loc="lower center",
+        bbox_to_anchor=(0, 0.0, 1, 0.8),
+        bbox_transform=legend_container.transAxes,
+    )
+    lf_gradient_ax.imshow(gradient_values, aspect="auto", cmap=lf_cmap_custom)
     lf_gradient_ax.set_xticks([])
     lf_gradient_ax.set_yticks([])
-    lf_gradient_ax.set_title('LF calls ●', fontsize=12, pad=4)
+    lf_gradient_ax.set_title("LF calls ●", fontsize=12, pad=4)
     for ax in axes.flat:
-        ax.grid(linestyle='--', alpha=0.6)
+        ax.grid(linestyle="--", alpha=0.6)
     return fig
 
 
-def plot_kdesurf(df_north: pd.DataFrame, df_south: pd.DataFrame, bathy: np.ndarray, 
-                 x: np.ndarray, y: np.ndarray, xg: np.ndarray, yg: np.ndarray, 
-                 heatmap: np.ndarray) -> plt.Figure:
-    """
-    """
+def plot_kdesurf(
+    df_north: pd.DataFrame,
+    df_south: pd.DataFrame,
+    bathy: np.ndarray,
+    x: np.ndarray,
+    y: np.ndarray,
+    xg: np.ndarray,
+    yg: np.ndarray,
+    heatmap: np.ndarray,
+) -> plt.Figure:
+    """ """
     # Plot the grid points on the map
-    colors_undersea = cmo.deep_r(np.linspace(0, 1, 256)) # blue colors for under the sea
+    colors_undersea = cmo.deep_r(
+        np.linspace(0, 1, 256)
+    )  # blue colors for under the sea
     colors_land = np.array([[0.5, 0.5, 0.5, 1]])  # Solid gray for above sea level
 
     # Combine the color maps
     all_colors = np.vstack((colors_undersea, colors_land))
-    custom_cmap = mcolors.LinearSegmentedColormap.from_list('custom_cmap', all_colors)
+    custom_cmap = mcolors.LinearSegmentedColormap.from_list("custom_cmap", all_colors)
 
     extent = [x[0], x[-1], y[0], y[-1]]
 
@@ -1541,172 +2242,332 @@ def plot_kdesurf(df_north: pd.DataFrame, df_south: pd.DataFrame, bathy: np.ndarr
     ax = plt.gca()
 
     # Plot the bathymetry relief in background
-    rgb = ls.shade(bathy, cmap=custom_cmap, vert_exag=0.1, blend_mode='overlay', vmin=np.min(bathy), vmax=0)
-    plot = ax.imshow(rgb, extent=extent, aspect='equal', origin='lower' , vmin=np.min(bathy), vmax=0)
+    rgb = ls.shade(
+        bathy,
+        cmap=custom_cmap,
+        vert_exag=0.1,
+        blend_mode="overlay",
+        vmin=np.min(bathy),
+        vmax=0,
+    )
+    plot = ax.imshow(
+        rgb, extent=extent, aspect="equal", origin="lower", vmin=np.min(bathy), vmax=0
+    )
 
     # Plot the cable location in 2D
-    ax.plot(df_north['x'], df_north['y'], 'tab:red', label='North cable', lw=2.5)
-    ax.plot(df_south['x'], df_south['y'], 'tab:orange', label='South cable', lw=2.5)
+    ax.plot(df_north["x"], df_north["y"], "tab:red", label="North cable", lw=2.5)
+    ax.plot(df_south["x"], df_south["y"], "tab:orange", label="South cable", lw=2.5)
 
     # Plot the used cable locations
     # ax.plot(df_north_used['x'], df_north_used['y'], 'tab:green', label='Used cable locations')
 
     # Plot the grid points
-    ax.scatter(xg, yg, c='k', s=1)
+    ax.scatter(xg, yg, c="k", s=1)
 
     # Plot the heatmaps over the grid points
-    ax.tricontourf(xg, yg, heatmap, levels=20, cmap='hot', alpha=0.5)
+    ax.tricontourf(xg, yg, heatmap, levels=20, cmap="hot", alpha=0.5)
 
     # Use a proxy artist for the color bar
-    im = ax.tricontourf(xg, yg, heatmap, levels=20, cmap='hot', alpha=0.5)
+    im = ax.tricontourf(xg, yg, heatmap, levels=20, cmap="hot", alpha=0.5)
 
     im_ratio = bathy.shape[1] / bathy.shape[0]
-    plt.colorbar(im, ax=ax, label='Standard deviaton', pad=0.02, orientation='vertical', aspect=25, fraction=0.0195)
+    plt.colorbar(
+        im,
+        ax=ax,
+        label="Standard deviaton",
+        pad=0.02,
+        orientation="vertical",
+        aspect=25,
+        fraction=0.0195,
+    )
     im.remove()
     # Set the labels
-    plt.xlabel('x [m]')
-    plt.ylabel('y [m]')
-    plt.legend(loc='upper left')
+    plt.xlabel("x [m]")
+    plt.ylabel("y [m]")
+    plt.legend(loc="upper left")
     plt.tight_layout()
-    return fig    
+    return fig
 
 
-def plot_associated_bicable_paper(peaks, longi_offset, pair_assoc_list, pair_loc_list, associated_list, localizations,
-                            n_cable_pos, s_cable_pos, n_dist, s_dist, sel_chan, dx, c0, fs, height_ratio=1.537, title=None):
+def plot_associated_bicable_paper(
+    peaks,
+    longi_offset,
+    pair_assoc_list,
+    pair_loc_list,
+    associated_list,
+    localizations,
+    n_cable_pos,
+    s_cable_pos,
+    n_dist,
+    s_dist,
+    sel_chan,
+    dx,
+    c0,
+    fs,
+    height_ratio=1.537,
+    title=None,
+):
     # Unpack the peaks and associated data
     n_peaks_hf, n_peaks_lf, s_peaks_hf, s_peaks_lf = peaks
     nhf_assoc_pair, nlf_assoc_pair, shf_assoc_pair, slf_assoc_pair = pair_assoc_list
     nhf_assoc_list, nlf_assoc_list, shf_assoc_list, slf_assoc_list = associated_list
     nhf_loc_pair, nlf_loc_pair, shf_loc_pair, slf_loc_pair = pair_loc_list
-    nhf_localizations, nlf_localizations, shf_localizations, slf_localizations = localizations
+    nhf_localizations, nlf_localizations, shf_localizations, slf_localizations = (
+        localizations
+    )
     n_selected_channels_m, s_selected_channels_m = sel_chan
 
-    hyperbola_STYLE = {'color': 'tab:gray', 'ls': '-', 'lw': 2, 'alpha': 0.7}
-    hfassoc_STYLE = {'marker': 'o', 's': 25, 'rasterized': True}  # Filled circle
-    lfassoc_STYLE = {'marker': 'o', 's': 25, 'rasterized': True}
+    hyperbola_STYLE = {"color": "tab:gray", "ls": "-", "lw": 2, "alpha": 0.7}
+    hfassoc_STYLE = {"marker": "o", "s": 25, "rasterized": True}  # Filled circle
+    lfassoc_STYLE = {"marker": "o", "s": 25, "rasterized": True}
 
-    fig, axes = plt.subplots(2, 1, figsize=(10, 16), sharex=True, sharey=False, constrained_layout=True, gridspec_kw={'height_ratios': [1, height_ratio]})
+    fig, axes = plt.subplots(
+        2,
+        1,
+        figsize=(10, 16),
+        sharex=True,
+        sharey=False,
+        constrained_layout=True,
+        gridspec_kw={"height_ratios": [1, height_ratio]},
+    )
 
     # Get color palettes
-    hf_palette = plt.get_cmap('YlOrRd_r')
-    lf_palette = plt.get_cmap('YlGnBu_r')
+    hf_palette = plt.get_cmap("YlOrRd_r")
+    lf_palette = plt.get_cmap("YlGnBu_r")
 
     # Assign color per HF/LF event
-    nbhf = max(len(nhf_assoc_pair), len(shf_assoc_pair)) + len(nhf_assoc_list) + len(shf_assoc_list) # Number of HF events
-    nblf = max(len(nlf_assoc_pair), len(slf_assoc_pair)) + len(nlf_assoc_list) + len(slf_assoc_list) # Number of LF events
+    nbhf = (
+        max(len(nhf_assoc_pair), len(shf_assoc_pair))
+        + len(nhf_assoc_list)
+        + len(shf_assoc_list)
+    )  # Number of HF events
+    nblf = (
+        max(len(nlf_assoc_pair), len(slf_assoc_pair))
+        + len(nlf_assoc_list)
+        + len(slf_assoc_list)
+    )  # Number of LF events
 
-    start, end = 0.0, 0.6  # Avoids partplot_associated_bicable_paper of the coolormap that is too light
+    start, end = (
+        0.0,
+        0.6,
+    )  # Avoids partplot_associated_bicable_paper of the coolormap that is too light
 
-    hf_colors = [hf_palette(start + (end - start) * i / max(nbhf - 1, 1)) for i in range(nbhf)]
-    lf_colors = [lf_palette(start + (end - start) * i / max(nblf - 1, 1)) for i in range(nblf)]
+    hf_colors = [
+        hf_palette(start + (end - start) * i / max(nbhf - 1, 1)) for i in range(nbhf)
+    ]
+    lf_colors = [
+        lf_palette(start + (end - start) * i / max(nblf - 1, 1)) for i in range(nblf)
+    ]
 
     # First subplot — North raw picks and associated
     # -- Raw picks --
-    axes[0].scatter(n_peaks_hf[1][:] / fs, (longi_offset + n_peaks_hf[0][:]) * dx * 1e-3,
-                     label='All peaks', s=0.5, alpha=0.2, color='tab:gray', rasterized=True)
-    axes[0].scatter(n_peaks_lf[1][:] / fs, (longi_offset + n_peaks_lf[0][:]) * dx * 1e-3,
-                     label='All peaks', s=0.5, alpha=0.2, color='tab:gray', rasterized=True)
+    axes[0].scatter(
+        n_peaks_hf[1][:] / fs,
+        (longi_offset + n_peaks_hf[0][:]) * dx * 1e-3,
+        label="All peaks",
+        s=0.5,
+        alpha=0.2,
+        color="tab:gray",
+        rasterized=True,
+    )
+    axes[0].scatter(
+        n_peaks_lf[1][:] / fs,
+        (longi_offset + n_peaks_lf[0][:]) * dx * 1e-3,
+        label="All peaks",
+        s=0.5,
+        alpha=0.2,
+        color="tab:gray",
+        rasterized=True,
+    )
     # -- Associated picks - pairs --
     for i, select in enumerate(nhf_assoc_pair):
-        axes[0].scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3,
-                         color=hf_colors[i], **hfassoc_STYLE)
-        axes[0].plot(dw.loc.calc_arrival_times(nhf_loc_pair[i][-1], n_cable_pos,
-                                            nhf_loc_pair[i][:3], c0),
-                                            n_dist / 1e3, **hyperbola_STYLE)
-        
+        axes[0].scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            color=hf_colors[i],
+            **hfassoc_STYLE,
+        )
+        axes[0].plot(
+            dw.loc.calc_arrival_times(
+                nhf_loc_pair[i][-1], n_cable_pos, nhf_loc_pair[i][:3], c0
+            ),
+            n_dist / 1e3,
+            **hyperbola_STYLE,
+        )
+
     for i, select in enumerate(nlf_assoc_pair):
-        axes[0].scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3,
-                         color=lf_colors[i], **lfassoc_STYLE)
-        axes[0].plot(dw.loc.calc_arrival_times(nlf_loc_pair[i][-1], n_cable_pos,
-                                            nlf_loc_pair[i][:3], c0),
-                                            n_dist / 1e3, **hyperbola_STYLE)
+        axes[0].scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            color=lf_colors[i],
+            **lfassoc_STYLE,
+        )
+        axes[0].plot(
+            dw.loc.calc_arrival_times(
+                nlf_loc_pair[i][-1], n_cable_pos, nlf_loc_pair[i][:3], c0
+            ),
+            n_dist / 1e3,
+            **hyperbola_STYLE,
+        )
 
     # -- Associated picks - single --
     for i, select in enumerate(nhf_assoc_list):
         idx_offset = len(nhf_assoc_pair)
-        axes[0].scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3,
-                           color=hf_colors[i+idx_offset], **hfassoc_STYLE)
-        axes[0].plot(dw.loc.calc_arrival_times(nhf_localizations[i][-1], n_cable_pos,
-                                                  nhf_localizations[i][:3], c0),
-                                                  n_dist / 1e3, **hyperbola_STYLE)
+        axes[0].scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            color=hf_colors[i + idx_offset],
+            **hfassoc_STYLE,
+        )
+        axes[0].plot(
+            dw.loc.calc_arrival_times(
+                nhf_localizations[i][-1], n_cable_pos, nhf_localizations[i][:3], c0
+            ),
+            n_dist / 1e3,
+            **hyperbola_STYLE,
+        )
     for i, select in enumerate(nlf_assoc_list):
         idx_offset = len(nlf_assoc_pair)
         # print(i, idx_offset, len(nhf_assoc_pair), len(shf_assoc_pair), len(nhf_assoc_list)print(len(lf_colors), len(nlf_assoc_list)))
-        axes[0].scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3,
-                           color=lf_colors[i+idx_offset], **lfassoc_STYLE)
-        axes[0].plot(dw.loc.calc_arrival_times(nlf_localizations[i][-1], n_cable_pos,
-                                                  nlf_localizations[i][:3], c0),
-                                                  n_dist / 1e3, **hyperbola_STYLE)
+        axes[0].scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            color=lf_colors[i + idx_offset],
+            **lfassoc_STYLE,
+        )
+        axes[0].plot(
+            dw.loc.calc_arrival_times(
+                nlf_localizations[i][-1], n_cable_pos, nlf_localizations[i][:3], c0
+            ),
+            n_dist / 1e3,
+            **hyperbola_STYLE,
+        )
 
     axes[0].set_title(f"Associations - {title}" if title else "Associations")
-    axes[0].set_ylabel(r'$\bf{North\ Cable}$' + '\nDistance [km]')
+    axes[0].set_ylabel(r"$\bf{North\ Cable}$" + "\nDistance [km]")
     axes[0].set_xlim(0, 70)
     axes[0].set_ylim(n_selected_channels_m[0] * 1e-3, n_selected_channels_m[1] * 1e-3)
 
     # Second subplot — South raw picks and associated
     # -- Raw picks --
-    axes[1].scatter(s_peaks_hf[1][:] / fs, (longi_offset + s_peaks_hf[0][:]) * dx * 1e-3,
-                       label='All peaks', s=0.5, alpha=0.2, color='tab:gray', rasterized=True)
-    axes[1].scatter(s_peaks_lf[1][:] / fs, (longi_offset + s_peaks_lf[0][:]) * dx * 1e-3,
-                       label='All peaks', s=0.5, alpha=0.2, color='tab:gray', rasterized=True)
+    axes[1].scatter(
+        s_peaks_hf[1][:] / fs,
+        (longi_offset + s_peaks_hf[0][:]) * dx * 1e-3,
+        label="All peaks",
+        s=0.5,
+        alpha=0.2,
+        color="tab:gray",
+        rasterized=True,
+    )
+    axes[1].scatter(
+        s_peaks_lf[1][:] / fs,
+        (longi_offset + s_peaks_lf[0][:]) * dx * 1e-3,
+        label="All peaks",
+        s=0.5,
+        alpha=0.2,
+        color="tab:gray",
+        rasterized=True,
+    )
     # -- Associated picks - pairs --
     for i, select in enumerate(shf_assoc_pair):
-        axes[1].scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3,
-                           color=hf_colors[i], **hfassoc_STYLE)
-        axes[1].plot(dw.loc.calc_arrival_times(shf_loc_pair[i][-1], s_cable_pos,
-                                            shf_loc_pair[i][:3], c0),
-                                            s_dist / 1e3, **hyperbola_STYLE)
+        axes[1].scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            color=hf_colors[i],
+            **hfassoc_STYLE,
+        )
+        axes[1].plot(
+            dw.loc.calc_arrival_times(
+                shf_loc_pair[i][-1], s_cable_pos, shf_loc_pair[i][:3], c0
+            ),
+            s_dist / 1e3,
+            **hyperbola_STYLE,
+        )
 
     for i, select in enumerate(slf_assoc_pair):
-        axes[1].scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3,
-                           color=lf_colors[i], **lfassoc_STYLE)
-        axes[1].plot(dw.loc.calc_arrival_times(slf_loc_pair[i][-1], s_cable_pos,
-                                                slf_loc_pair[i][:3], c0),
-                                                s_dist / 1e3, **hyperbola_STYLE)
+        axes[1].scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            color=lf_colors[i],
+            **lfassoc_STYLE,
+        )
+        axes[1].plot(
+            dw.loc.calc_arrival_times(
+                slf_loc_pair[i][-1], s_cable_pos, slf_loc_pair[i][:3], c0
+            ),
+            s_dist / 1e3,
+            **hyperbola_STYLE,
+        )
 
     # -- Associated picks - single --
     for i, select in enumerate(shf_assoc_list):
-        idx_offset =  max(len(nhf_assoc_pair), len(shf_assoc_pair)) + len(nhf_assoc_list)
-        axes[1].scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3,
-                           color=hf_colors[i+idx_offset], **hfassoc_STYLE)
-        axes[1].plot(dw.loc.calc_arrival_times(shf_localizations[i][-1], s_cable_pos,
-                                                    shf_localizations[i][:3], c0),
-                                                    s_dist / 1e3, **hyperbola_STYLE)
+        idx_offset = max(len(nhf_assoc_pair), len(shf_assoc_pair)) + len(nhf_assoc_list)
+        axes[1].scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            color=hf_colors[i + idx_offset],
+            **hfassoc_STYLE,
+        )
+        axes[1].plot(
+            dw.loc.calc_arrival_times(
+                shf_localizations[i][-1], s_cable_pos, shf_localizations[i][:3], c0
+            ),
+            s_dist / 1e3,
+            **hyperbola_STYLE,
+        )
 
     for i, select in enumerate(slf_assoc_list):
         idx_offset = max(len(nlf_assoc_pair), len(slf_assoc_pair)) + len(nlf_assoc_list)
-        axes[1].scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3,
-                           color=lf_colors[i+idx_offset], **lfassoc_STYLE)
-        axes[1].plot(dw.loc.calc_arrival_times(slf_localizations[i][-1], s_cable_pos,
-                                                slf_localizations[i][:3], c0),
-                                                s_dist / 1e3, **hyperbola_STYLE)
+        axes[1].scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            color=lf_colors[i + idx_offset],
+            **lfassoc_STYLE,
+        )
+        axes[1].plot(
+            dw.loc.calc_arrival_times(
+                slf_localizations[i][-1], s_cable_pos, slf_localizations[i][:3], c0
+            ),
+            s_dist / 1e3,
+            **hyperbola_STYLE,
+        )
 
     axes[1].set_title(f"Associations - {title}" if title else "Associations")
-    axes[1].set_ylabel(r'$\bf{South\ Cable}$'+ '\nDistance [km]')
-    axes[1].set_xlabel('Time [s]')
+    axes[1].set_ylabel(r"$\bf{South\ Cable}$" + "\nDistance [km]")
+    axes[1].set_xlabel("Time [s]")
     axes[1].set_ylim(s_selected_channels_m[0] * 1e-3, s_selected_channels_m[1] * 1e-3)
 
     # Add a common legend
+    from matplotlib import patches
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-    import matplotlib.patches as patches
 
     # Create a parent container for the legend with frame
-    legend_container = inset_axes(axes[1], width="25%", height="12%", loc='lower center',
-                                bbox_to_anchor=(-0.5, -0.01, 2, 0.6), bbox_transform=axes[1].transAxes)
+    legend_container = inset_axes(
+        axes[1],
+        width="25%",
+        height="12%",
+        loc="lower center",
+        bbox_to_anchor=(-0.5, -0.01, 2, 0.6),
+        bbox_transform=axes[1].transAxes,
+    )
 
     legend_container.set_xlim(0, 1)
     legend_container.set_ylim(0, 1)
     legend_container.set_xticks([])
     legend_container.set_yticks([])
-    legend_container.set_facecolor('white')
+    legend_container.set_facecolor("white")
 
-    # Make the background white in pdfs too 
-    rounded_box = patches.FancyBboxPatch((0, 0), 1, 1, 
-                                boxstyle="round,pad=0.1", 
-                                facecolor='white', 
-                                edgecolor='gray', 
-                                linewidth=1,
-                                transform=legend_container.transAxes)
+    # Make the background white in pdfs too
+    rounded_box = patches.FancyBboxPatch(
+        (0, 0),
+        1,
+        1,
+        boxstyle="round,pad=0.1",
+        facecolor="white",
+        edgecolor="gray",
+        linewidth=1,
+        transform=legend_container.transAxes,
+    )
     legend_container.add_patch(rounded_box)
 
     # Calculate spacing and number of markers
@@ -1718,7 +2579,7 @@ def plot_associated_bicable_paper(peaks, longi_offset, pair_assoc_list, pair_loc
     hf_title_x = hf_start_x + (max_markers_per_type - 1) * marker_spacing / 2
 
     # Add HF title
-    legend_container.text(hf_title_x, 0.6, 'HF calls', ha='center', va='center')
+    legend_container.text(hf_title_x, 0.6, "HF calls", ha="center", va="center")
 
     # Plot HF markers horizontally
     n_hf_to_show = min(len(hf_colors), max_markers_per_type)
@@ -1726,35 +2587,40 @@ def plot_associated_bicable_paper(peaks, longi_offset, pair_assoc_list, pair_loc
         # Show all markers if we have few enough
         for i in range(n_hf_to_show):
             x_pos = hf_start_x + i * marker_spacing
-            legend_container.scatter(x_pos, 0.2, color=hf_colors[i],
-                                marker='o', s=100, alpha=1)
+            legend_container.scatter(
+                x_pos, 0.2, color=hf_colors[i], marker="o", s=100, alpha=1
+            )
     else:
         # Show first few, ellipsis in middle, then last few
         markers_each_side = (max_markers_per_type - 1) // 2  # Save 1 spot for ellipsis
-        
+
         # First markers
         for i in range(markers_each_side):
             x_pos = hf_start_x + i * marker_spacing
-            legend_container.scatter(x_pos, 0.2, color=hf_colors[i],
-                                marker='o', s=100, alpha=1)
-        
+            legend_container.scatter(
+                x_pos, 0.2, color=hf_colors[i], marker="o", s=100, alpha=1
+            )
+
         # Ellipsis in middle
         middle_x = hf_start_x + markers_each_side * marker_spacing
-        legend_container.text(middle_x, 0.2, '...', ha='center', va='center', fontsize=12)
-        
+        legend_container.text(
+            middle_x, 0.2, "...", ha="center", va="center", fontsize=12
+        )
+
         # Last markers
         for i in range(markers_each_side):
             x_pos = hf_start_x + (markers_each_side + 1 + i) * marker_spacing
             color_idx = len(hf_colors) - markers_each_side + i
-            legend_container.scatter(x_pos, 0.2, color=hf_colors[color_idx],
-                                marker='o', s=100, alpha=1)
+            legend_container.scatter(
+                x_pos, 0.2, color=hf_colors[color_idx], marker="o", s=100, alpha=1
+            )
 
     # LF section (right half) - same logic
     lf_start_x = 0.58
     lf_title_x = lf_start_x + (max_markers_per_type - 1) * marker_spacing / 2
 
     # Add LF title
-    legend_container.text(lf_title_x, 0.6, 'LF calls', ha='center', va='center')
+    legend_container.text(lf_title_x, 0.6, "LF calls", ha="center", va="center")
 
     # Plot LF markers horizontally
     n_lf_to_show = min(len(lf_colors), max_markers_per_type)
@@ -1762,39 +2628,49 @@ def plot_associated_bicable_paper(peaks, longi_offset, pair_assoc_list, pair_loc
         # Show all markers if we have few enough
         for i in range(n_lf_to_show):
             x_pos = lf_start_x + i * marker_spacing
-            legend_container.scatter(x_pos, 0.2, color=lf_colors[i],
-                                marker='o', s=100, alpha=1)
+            legend_container.scatter(
+                x_pos, 0.2, color=lf_colors[i], marker="o", s=100, alpha=1
+            )
     else:
         # Show first few, ellipsis in middle, then last few
         markers_each_side = (max_markers_per_type - 1) // 2  # Save 1 spot for ellipsis
-        
+
         # First markers
         for i in range(markers_each_side):
             x_pos = lf_start_x + i * marker_spacing
-            legend_container.scatter(x_pos, 0.2, color=lf_colors[i],
-                                marker='o', s=100, alpha=1)
-        
+            legend_container.scatter(
+                x_pos, 0.2, color=lf_colors[i], marker="o", s=100, alpha=1
+            )
+
         # Ellipsis in middle
         middle_x = lf_start_x + markers_each_side * marker_spacing
-        legend_container.text(middle_x, 0.2, '...', ha='center', va='center', fontsize=12)
-        
-        # Last markers  
+        legend_container.text(
+            middle_x, 0.2, "...", ha="center", va="center", fontsize=12
+        )
+
+        # Last markers
         for i in range(markers_each_side):
             x_pos = lf_start_x + (markers_each_side + 1 + i) * marker_spacing
             color_idx = len(lf_colors) - markers_each_side + i
-            legend_container.scatter(x_pos, 0.2, color=lf_colors[color_idx],
-                                marker='o', s=100, alpha=1)
+            legend_container.scatter(
+                x_pos, 0.2, color=lf_colors[color_idx], marker="o", s=100, alpha=1
+            )
 
     # Vertical separator line between HF and LF
     separator_x = 0.5
-    legend_container.axvline(x=separator_x, ymin=0.2, ymax=0.8, 
-                            color='lightgray', linewidth=1, alpha=0.7,
-                            )
-    
+    legend_container.axvline(
+        x=separator_x,
+        ymin=0.2,
+        ymax=0.8,
+        color="lightgray",
+        linewidth=1,
+        alpha=0.7,
+    )
+
     # Modify the grid
     for ax in axes.flat:
-        ax.grid(linestyle='--', alpha=0.3, linewidth=0.5)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
+        ax.grid(linestyle="--", alpha=0.3, linewidth=0.5)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
         ax.set_axisbelow(True)  # Put grid behind data
     return fig

@@ -10,18 +10,22 @@ Date: 2023-2024
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict, List, Tuple, Union, Optional, Any
 
 import matplotlib.pyplot as plt
 import matplotlib.ticker as tkr
 import numpy as np
 import scipy.signal as sp
-import das4whales as dw
 
+import das4whales as dw
 from das4whales.dsp import get_fx, instant_freq
 
 
-def plot_rawdata(trace: np.ndarray, time: np.ndarray, dist: np.ndarray, fig_size: Tuple[int, int] = (12, 10)) -> None:
+def plot_rawdata(
+    trace: np.ndarray,
+    time: np.ndarray,
+    dist: np.ndarray,
+    fig_size: tuple[int, int] = (12, 10),
+) -> None:
     """
     Plot the raw DAS data.
 
@@ -35,19 +39,37 @@ def plot_rawdata(trace: np.ndarray, time: np.ndarray, dist: np.ndarray, fig_size
         The distance values corresponding to the trace data.
     fig_size : tuple, optional
         The size of the figure in inches, by default (12, 10).
-    """    
+    """
 
     fig = plt.figure(figsize=fig_size)
-    wv = plt.imshow(trace * 1e9, aspect='auto', cmap='RdBu', extent=[min(time),max(time),min(dist)*1e-3,max(dist)*1e-3], origin='lower', vmin=-500, vmax=500, interpolation_stage='data')
-    plt.title('Raw DAS data')
-    plt.ylabel('Distance [km]')
-    plt.xlabel('Time [s]')
+    wv = plt.imshow(
+        trace * 1e9,
+        aspect="auto",
+        cmap="RdBu",
+        extent=[min(time), max(time), min(dist) * 1e-3, max(dist) * 1e-3],
+        origin="lower",
+        vmin=-500,
+        vmax=500,
+        interpolation_stage="data",
+    )
+    plt.title("Raw DAS data")
+    plt.ylabel("Distance [km]")
+    plt.xlabel("Time [s]")
     bar = fig.colorbar(wv, aspect=30, pad=0.015)
-    bar.set_label(label='Strain [-] x$10^{-9}$)')
+    bar.set_label(label="Strain [-] x$10^{-9}$)")
     plt.show()
 
 
-def plot_tx(trace: np.ndarray, time: np.ndarray, dist: np.ndarray, title_time_info: float = 0, fig_size: Tuple[int, int] = (12, 10), v_min: Optional[float] = None, v_max: Optional[float] = None, cbar_label: str = 'Strain Envelope (x$10^{-9}$)') -> None:
+def plot_tx(
+    trace: np.ndarray,
+    time: np.ndarray,
+    dist: np.ndarray,
+    title_time_info: float = 0,
+    fig_size: tuple[int, int] = (12, 10),
+    v_min: float | None = None,
+    v_max: float | None = None,
+    cbar_label: str = "Strain Envelope (x$10^{-9}$)",
+) -> None:
     """
     Spatio-temporal representation (t-x plot) of the strain data
 
@@ -60,7 +82,7 @@ def plot_tx(trace: np.ndarray, time: np.ndarray, dist: np.ndarray, title_time_in
     dist : np.ndarray
         The corresponding distance along the FO cable vector
     title_time_info : int, str, or datetime.datetime, optional
-        A time reference to display or the plot title. Can be a UTC timestamp (int), 
+        A time reference to display or the plot title. Can be a UTC timestamp (int),
         a formatted string, or a `datetime.datetime` object (default is 0).
     fig_size : tuple, optional
         Tuple of the figure dimensions (default is (12, 10))
@@ -83,33 +105,57 @@ def plot_tx(trace: np.ndarray, time: np.ndarray, dist: np.ndarray, title_time_in
     """
 
     fig = plt.figure(figsize=fig_size)
-    #TODO determine if the envelope should be implemented here rather than just abs
-    # Replace abs(trace) per abs(sp.hilbert(trace, axis=1)) ? 
-    shw = plt.imshow(abs(trace) * 1e9, extent=[time[0], time[-1], dist[0] * 1e-3, dist[-1] * 1e-3, ], aspect='auto',
-                     origin='lower', cmap='turbo', vmin=v_min, vmax=v_max, interpolation_stage='data')
-    plt.ylabel('Distance (km)')
-    plt.xlabel('Time [s]')
+    # TODO determine if the envelope should be implemented here rather than just abs
+    # Replace abs(trace) per abs(sp.hilbert(trace, axis=1)) ?
+    shw = plt.imshow(
+        abs(trace) * 1e9,
+        extent=[
+            time[0],
+            time[-1],
+            dist[0] * 1e-3,
+            dist[-1] * 1e-3,
+        ],
+        aspect="auto",
+        origin="lower",
+        cmap="turbo",
+        vmin=v_min,
+        vmax=v_max,
+        interpolation_stage="data",
+    )
+    plt.ylabel("Distance (km)")
+    plt.xlabel("Time [s]")
     bar = fig.colorbar(shw, aspect=30, pad=0.015)
     bar.set_label(cbar_label)
-	
+
     if title_time_info:
         if isinstance(title_time_info, datetime):
             title_text = title_time_info.strftime("%Y-%m-%d %H:%M:%S")
         elif isinstance(title_time_info, str):
             title_text = title_time_info
         elif isinstance(title_time_info, int):
-            title_text = datetime.utcfromtimestamp(title_time_info).strftime("%Y-%m-%d %H:%M:%S")
+            title_text = datetime.utcfromtimestamp(title_time_info).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
         else:
-            raise ValueError("title_time_info must be an int, str, or datetime.datetime.")
-        plt.title(title_text, loc='right')
-	
+            raise ValueError(
+                "title_time_info must be an int, str, or datetime.datetime."
+            )
+        plt.title(title_text, loc="right")
+
     plt.tight_layout()
     plt.show()
 
-    return
 
-
-def plot_tx_env(trace, time, dist, title_time_info=0, fig_size=(12, 10), v_min=None, v_max=None, cbar_label='Strain Envelope (x$10^{-9}$)'):
+def plot_tx_env(
+    trace,
+    time,
+    dist,
+    title_time_info=0,
+    fig_size=(12, 10),
+    v_min=None,
+    v_max=None,
+    cbar_label="Strain Envelope (x$10^{-9}$)",
+):
     """
     Spatio-temporal representation (t-x plot) of the strain data envelope
 
@@ -122,7 +168,7 @@ def plot_tx_env(trace, time, dist, title_time_info=0, fig_size=(12, 10), v_min=N
     dist : np.ndarray
         The corresponding distance along the FO cable vector
     title_time_info : int, str, or datetime.datetime, optional
-        A time reference to display or the plot title. Can be a UTC timestamp (int), 
+        A time reference to display or the plot title. Can be a UTC timestamp (int),
         a formatted string, or a `datetime.datetime` object (default is 0).
     fig_size : tuple, optional
         Tuple of the figure dimensions (default is (12, 10))
@@ -145,12 +191,25 @@ def plot_tx_env(trace, time, dist, title_time_info=0, fig_size=(12, 10), v_min=N
     """
 
     fig = plt.figure(figsize=fig_size)
-    #TODO determine if the envelope should be implemented here rather than just abs
-    # Replace abs(trace) per abs(sp.hilbert(trace, axis=1)) ? 
-    shw = plt.imshow(abs(trace), extent=[time[0], time[-1], dist[0] * 1e-3, dist[-1] * 1e-3, ], aspect='auto',
-                     origin='lower', cmap='turbo', vmin=v_min, vmax=v_max, interpolation_stage='data')
-    plt.ylabel('Distance (km)')
-    plt.xlabel('Time [s]')
+    # TODO determine if the envelope should be implemented here rather than just abs
+    # Replace abs(trace) per abs(sp.hilbert(trace, axis=1)) ?
+    shw = plt.imshow(
+        abs(trace),
+        extent=[
+            time[0],
+            time[-1],
+            dist[0] * 1e-3,
+            dist[-1] * 1e-3,
+        ],
+        aspect="auto",
+        origin="lower",
+        cmap="turbo",
+        vmin=v_min,
+        vmax=v_max,
+        interpolation_stage="data",
+    )
+    plt.ylabel("Distance (km)")
+    plt.xlabel("Time [s]")
     bar = fig.colorbar(shw, aspect=30, pad=0.015)
     bar.set_label(cbar_label)
 
@@ -160,18 +219,29 @@ def plot_tx_env(trace, time, dist, title_time_info=0, fig_size=(12, 10), v_min=N
         elif isinstance(title_time_info, str):
             title_text = title_time_info
         elif isinstance(title_time_info, int):
-            title_text = datetime.utcfromtimestamp(title_time_info).strftime("%Y-%m-%d %H:%M:%S")
+            title_text = datetime.utcfromtimestamp(title_time_info).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
         else:
-            raise ValueError("title_time_info must be an int, str, or datetime.datetime.")
-        plt.title(title_text, loc='right')
+            raise ValueError(
+                "title_time_info must be an int, str, or datetime.datetime."
+            )
+        plt.title(title_text, loc="right")
 
     plt.tight_layout()
     plt.show()
 
-    return
 
-
-def plot_tx_lined(trace, ln_idx, time, dist, title_time_info=0, fig_size=(12, 10), v_min=None, v_max=None):
+def plot_tx_lined(
+    trace,
+    ln_idx,
+    time,
+    dist,
+    title_time_info=0,
+    fig_size=(12, 10),
+    v_min=None,
+    v_max=None,
+):
     """
     Spatio-temporal representation (t-x plot) of the strain data
 
@@ -186,7 +256,7 @@ def plot_tx_lined(trace, ln_idx, time, dist, title_time_info=0, fig_size=(12, 10
     dist : np.ndarray
         The corresponding distance along the FO cable vector
     title_time_info : int, str, or datetime.datetime, optional
-        A time reference to display or the plot title. Can be a UTC timestamp (int), 
+        A time reference to display or the plot title. Can be a UTC timestamp (int),
         a formatted string, or a `datetime.datetime` object (default is 0).
     fig_size : tuple, optional
         Tuple of the figure dimensions (default is (12, 10))
@@ -201,7 +271,7 @@ def plot_tx_lined(trace, ln_idx, time, dist, title_time_info=0, fig_size=(12, 10
 
     Notes:
     ------
-    This function plots a spatio-temporal representation (t-x plot) of the strain data with a line highlighted for a given channel index. 
+    This function plots a spatio-temporal representation (t-x plot) of the strain data with a line highlighted for a given channel index.
     It uses the given strain data, time vector, and distance vector to create the plot. The plot shows the strain envelope as a color map, with time
     on the x-axis and distance on the y-axis. The color of each point in the plot represents the strain amplitude at
     that point. The function also supports customizing the figure size, colorbar limits, and title.
@@ -209,15 +279,33 @@ def plot_tx_lined(trace, ln_idx, time, dist, title_time_info=0, fig_size=(12, 10
     """
 
     fig = plt.figure(figsize=fig_size)
-    #TODO determine if the envelope should be implemented here rather than just abs
-    # Replace abs(trace) per abs(sp.hilbert(trace, axis=1)) ? 
-    shw = plt.imshow(abs(trace) * 10 ** 9, extent=[time[0], time[-1], dist[0] * 1e-3, dist[-1] * 1e-3, ], aspect='auto',
-                     origin='lower', cmap='turbo', vmin=v_min, vmax=v_max, interpolation_stage='data')
-    plt.plot([time[0], time[-1]], [dist[ln_idx] * 1e-3, dist[ln_idx] * 1e-3], 'w--', linewidth=3)
-    plt.ylabel('Distance (km)')
-    plt.xlabel('Time [s]')
+    # TODO determine if the envelope should be implemented here rather than just abs
+    # Replace abs(trace) per abs(sp.hilbert(trace, axis=1)) ?
+    shw = plt.imshow(
+        abs(trace) * 10**9,
+        extent=[
+            time[0],
+            time[-1],
+            dist[0] * 1e-3,
+            dist[-1] * 1e-3,
+        ],
+        aspect="auto",
+        origin="lower",
+        cmap="turbo",
+        vmin=v_min,
+        vmax=v_max,
+        interpolation_stage="data",
+    )
+    plt.plot(
+        [time[0], time[-1]],
+        [dist[ln_idx] * 1e-3, dist[ln_idx] * 1e-3],
+        "w--",
+        linewidth=3,
+    )
+    plt.ylabel("Distance (km)")
+    plt.xlabel("Time [s]")
     bar = fig.colorbar(shw, aspect=30, pad=0.015)
-    bar.set_label('Strain Envelope (x$10^{-9}$)')
+    bar.set_label("Strain Envelope (x$10^{-9}$)")
 
     if title_time_info:
         if isinstance(title_time_info, datetime):
@@ -225,19 +313,32 @@ def plot_tx_lined(trace, ln_idx, time, dist, title_time_info=0, fig_size=(12, 10
         elif isinstance(title_time_info, str):
             title_text = title_time_info
         elif isinstance(title_time_info, int):
-            title_text = datetime.utcfromtimestamp(title_time_info).strftime("%Y-%m-%d %H:%M:%S")
+            title_text = datetime.utcfromtimestamp(title_time_info).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
         else:
-            raise ValueError("title_time_info must be an int, str, or datetime.datetime.")
-        plt.title(title_text, loc='right')
+            raise ValueError(
+                "title_time_info must be an int, str, or datetime.datetime."
+            )
+        plt.title(title_text, loc="right")
 
     plt.tight_layout()
     plt.show()
 
-    return
 
-
-def plot_fx(trace, dist, fs, title_time_info=0, win_s=2, nfft=4096, fig_size=(12, 10), f_min=0,
-            f_max=100, v_min=None, v_max=None):
+def plot_fx(
+    trace,
+    dist,
+    fs,
+    title_time_info=0,
+    win_s=2,
+    nfft=4096,
+    fig_size=(12, 10),
+    f_min=0,
+    f_max=100,
+    v_min=None,
+    v_max=None,
+):
     """
     Spatio-spectral (f-x plot) of the strain data
 
@@ -250,7 +351,7 @@ def plot_fx(trace, dist, fs, title_time_info=0, win_s=2, nfft=4096, fig_size=(12
     fs : float
         The sampling frequency (Hz)
     title_time_info : int, str, or datetime.datetime, optional
-        A time reference to display or the plot title. Can be a UTC timestamp (int), 
+        A time reference to display or the plot title. Can be a UTC timestamp (int),
         a formatted string, or a `datetime.datetime` object (default is 0).
     win_s : int, optional
         The duration of each f-k plot (s), by default 2
@@ -293,12 +394,14 @@ def plot_fx(trace, dist, fs, title_time_info=0, win_s=2, nfft=4096, fig_size=(12
 
     # Prepare the plot
     rows = 3
-    cols = int(np.ceil(nb_subplots/rows))
+    cols = int(np.ceil(nb_subplots / rows))
 
     fig, axes = plt.subplots(rows, cols, figsize=fig_size)
     # Run through the data
     for ind in range(nb_subplots):
-        fx = get_fx(trace[:, int(ind * win_s * fs):int((ind + 1) * win_s * fs):1], nfft)
+        fx = get_fx(
+            trace[:, int(ind * win_s * fs) : int((ind + 1) * win_s * fs) : 1], nfft
+        )
         # fx = np.transpose(fx) - np.mean(fx, axis=1)
         # fx = np.transpose(fx)
 
@@ -307,18 +410,26 @@ def plot_fx(trace, dist, fs, title_time_info=0, win_s=2, nfft=4096, fig_size=(12
         c = ind % cols
         ax = axes[r][c]
 
-        shw = ax.imshow(fx, extent=[freq[0], freq[-1], dist[0] * 1e-3, dist[-1] * 1e-3], aspect='auto',
-                        origin='lower', cmap='jet', vmin=v_min, vmax=v_max, interpolation_stage='data')
+        shw = ax.imshow(
+            fx,
+            extent=[freq[0], freq[-1], dist[0] * 1e-3, dist[-1] * 1e-3],
+            aspect="auto",
+            origin="lower",
+            cmap="jet",
+            vmin=v_min,
+            vmax=v_max,
+            interpolation_stage="data",
+        )
 
         ax.set_xlim([f_min, f_max])
-        if r == rows-1:
-            ax.set_xlabel('Frequency [Hz]')
+        if r == rows - 1:
+            ax.set_xlabel("Frequency [Hz]")
         else:
             ax.set_xticks([])
             ax.xaxis.set_tick_params(labelbottom=False)
 
         if c == 0:
-            ax.set_ylabel('Distance (km)')
+            ax.set_ylabel("Distance (km)")
         else:
             ax.set_yticks([])
             ax.yaxis.set_tick_params(labelleft=False)
@@ -329,18 +440,24 @@ def plot_fx(trace, dist, fs, title_time_info=0, win_s=2, nfft=4096, fig_size=(12
         elif isinstance(title_time_info, str):
             title_text = title_time_info
         elif isinstance(title_time_info, int):
-            title_text = datetime.utcfromtimestamp(title_time_info).strftime("%Y-%m-%d %H:%M:%S")
+            title_text = datetime.utcfromtimestamp(title_time_info).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
         else:
-            raise ValueError("title_time_info must be an int, str, or datetime.datetime.")
-        plt.title(title_text, loc='right')
+            raise ValueError(
+                "title_time_info must be an int, str, or datetime.datetime."
+            )
+        plt.title(title_text, loc="right")
 
     # Colorbar
     bar = fig.colorbar(shw, ax=axes.ravel().tolist())
-    bar.set_label('Strain (x$10^{-9}$)')
+    bar.set_label("Strain (x$10^{-9}$)")
     plt.show()
 
 
-def plot_spectrogram(p, tt, ff, fig_size=(20, 6), v_min=None, v_max=None, f_min=None, f_max=None):
+def plot_spectrogram(
+    p, tt, ff, fig_size=(20, 6), v_min=None, v_max=None, f_min=None, f_max=None
+):
     """
     Plot a spectrogram.
 
@@ -371,14 +488,16 @@ def plot_spectrogram(p, tt, ff, fig_size=(20, 6), v_min=None, v_max=None, f_min=
     roseus = import_roseus()
     fig, ax = plt.subplots(figsize=fig_size)
 
-    shw = ax.pcolormesh(tt, ff, p, shading='auto', cmap=roseus, vmin=v_min, vmax=v_max, rasterized=True)
+    shw = ax.pcolormesh(
+        tt, ff, p, shading="auto", cmap=roseus, vmin=v_min, vmax=v_max, rasterized=True
+    )
     ax.set_ylim(f_min, f_max)
-    ax.set_xlabel('Time [s]')
-    ax.set_ylabel('Frequency [Hz]')
+    ax.set_xlabel("Time [s]")
+    ax.set_ylabel("Frequency [Hz]")
 
     # Colorbar
     bar = fig.colorbar(shw, aspect=30, pad=0.015)
-    bar.set_label('dB (strain x$10^{-9}$)')
+    bar.set_label("dB (strain x$10^{-9}$)")
     plt.tight_layout()
     # plt.show()
     return fig
@@ -406,46 +525,44 @@ def plot_3calls(channel, time, t1, t2, t3):
     None
 
     """
-    
-    plt.figure(figsize=(17,6))
+
+    plt.figure(figsize=(17, 6))
 
     plt.subplot(211)
-    plt.plot(time, channel, ls='-')
+    plt.plot(time, channel, ls="-")
     plt.xlim([time[0], time[-1]])
-    plt.ylabel('Strain [-]')
+    plt.ylabel("Strain [-]")
     plt.grid()
     plt.tight_layout()
 
     plt.subplot(234)
     plt.plot(time, channel)
-    plt.ylabel('Strain [-]')
-    plt.xlabel('Time [s]')
-    plt.xlim([t1, t1+2.])
+    plt.ylabel("Strain [-]")
+    plt.xlabel("Time [s]")
+    plt.xlim([t1, t1 + 2.0])
     plt.grid()
     plt.tight_layout()
 
     plt.subplot(235)
-    plt.plot(time, channel)   
-    plt.xlim([t2, t2+2.])
-    plt.xlabel('Time [s]')
+    plt.plot(time, channel)
+    plt.xlim([t2, t2 + 2.0])
+    plt.xlabel("Time [s]")
     plt.grid()
     plt.tight_layout()
 
     plt.subplot(236)
-    plt.plot(time, channel)   
-    plt.xlim([t3, t3+2.])
-    plt.xlabel('Time [s]')
+    plt.plot(time, channel)
+    plt.xlim([t3, t3 + 2.0])
+    plt.xlabel("Time [s]")
     plt.grid()
     plt.tight_layout()
 
     # plt.savefig('3calls.pdf', format='pdf')
     plt.show()
 
-    return
-
 
 def design_mf(trace, hnote, lnote, th, tl, time, fs):
-    """Plot to design the matched filter 
+    """Plot to design the matched filter
 
     Parameters
     ----------
@@ -463,7 +580,7 @@ def design_mf(trace, hnote, lnote, th, tl, time, fs):
         1D vector of time values
     fs : float
         sampling frequency
-    """    
+    """
 
     nf = int(th * fs)
     nl = int(tl * fs)
@@ -479,22 +596,26 @@ def design_mf(trace, hnote, lnote, th, tl, time, fs):
     # Plot the generated linear chirp signal
     plt.figure(figsize=(18, 8))
     plt.subplot(121)
-    plt.plot(time, (trace) / (np.max(abs(trace))), label='Normalized measured fin call', lw=3)
-    plt.plot(time, (dummy_chan) / (np.max(abs(dummy_chan))), label='Synthetic template', lw=3)
-    plt.title('Fin whale call template design - HF note')
-    plt.xlabel('Time (seconds)')
-    plt.ylabel('Amplitude')
-    plt.xlim(th-0.5, th+1.5)
+    plt.plot(
+        time, (trace) / (np.max(abs(trace))), label="Normalized measured fin call", lw=3
+    )
+    plt.plot(
+        time, (dummy_chan) / (np.max(abs(dummy_chan))), label="Synthetic template", lw=3
+    )
+    plt.title("Fin whale call template design - HF note")
+    plt.xlabel("Time (seconds)")
+    plt.ylabel("Amplitude")
+    plt.xlim(th - 0.5, th + 1.5)
     plt.grid()
     plt.legend()
 
     plt.subplot(122)
-    plt.plot(time[1:], fi, label='Measured fin call', lw=3)
-    plt.plot(time[1:], fi_mf, label='Synthetic template', lw=3)
-    plt.xlim([th-0.5, th+1.5])
-    plt.ylim([15., 35])
-    plt.xlabel('Time (seconds)')
-    plt.ylabel('Instantaneous frequency [Hz]')
+    plt.plot(time[1:], fi, label="Measured fin call", lw=3)
+    plt.plot(time[1:], fi_mf, label="Synthetic template", lw=3)
+    plt.xlim([th - 0.5, th + 1.5])
+    plt.ylim([15.0, 35])
+    plt.xlabel("Time (seconds)")
+    plt.ylabel("Instantaneous frequency [Hz]")
     plt.legend()
     plt.grid()
     plt.tight_layout()
@@ -502,31 +623,47 @@ def design_mf(trace, hnote, lnote, th, tl, time, fs):
 
     plt.figure(figsize=(18, 4))
     plt.subplot(121)
-    plt.plot(time, (trace - np.mean(trace)) / (np.max(abs(trace))), label='normalized measured fin call')
-    plt.plot(time, (dummy_chan - np.mean(dummy_chan)) / (np.max(abs(dummy_chan))), label='template')
-    plt.title('fin whale call template - LF note')
-    plt.xlabel('Time (seconds)')
-    plt.ylabel('Amplitude')
-    plt.xlim([tl-0.5, tl+1.5])
+    plt.plot(
+        time,
+        (trace - np.mean(trace)) / (np.max(abs(trace))),
+        label="normalized measured fin call",
+    )
+    plt.plot(
+        time,
+        (dummy_chan - np.mean(dummy_chan)) / (np.max(abs(dummy_chan))),
+        label="template",
+    )
+    plt.title("fin whale call template - LF note")
+    plt.xlabel("Time (seconds)")
+    plt.ylabel("Amplitude")
+    plt.xlim([tl - 0.5, tl + 1.5])
     plt.grid()
     plt.legend()
 
     plt.subplot(122)
-    plt.plot(time[1:], fi, label='measured fin call')
-    plt.plot(time[1:], fi_mf, label='template')
-    plt.xlim([tl-0.5, tl+1.5])
-    plt.ylim([12., 28.])
-    plt.xlabel('Time (seconds)')
-    plt.ylabel('Instantaneous frequency [Hz]')
+    plt.plot(time[1:], fi, label="measured fin call")
+    plt.plot(time[1:], fi_mf, label="template")
+    plt.xlim([tl - 0.5, tl + 1.5])
+    plt.ylim([12.0, 28.0])
+    plt.xlabel("Time (seconds)")
+    plt.ylabel("Instantaneous frequency [Hz]")
     plt.legend()
     plt.grid()
     plt.tight_layout()
     plt.show()
 
-    return
 
-
-def detection_mf(trace, peaks_idx_HF, peaks_idx_LF, time, dist, fs, dx, selected_channels, title_time_info=None):
+def detection_mf(
+    trace,
+    peaks_idx_HF,
+    peaks_idx_LF,
+    time,
+    dist,
+    fs,
+    dx,
+    selected_channels,
+    title_time_info=None,
+):
     """Plot the strain trace matrix [dist x time] with call detection above it
 
     Parameters
@@ -548,18 +685,39 @@ def detection_mf(trace, peaks_idx_HF, peaks_idx_LF, time, dist, fs, dx, selected
     selected_channels : list
         list of selected channels indexes [start, stop, step]
     title_time_info : int, str, or datetime.datetime, optional
-        A time reference to display or the plot title. Can be a UTC timestamp (int), 
+        A time reference to display or the plot title. Can be a UTC timestamp (int),
         a formatted string, or a `datetime.datetime` object (default is 0).
-    """    
+    """
 
-    fig = plt.figure(figsize=(12,10))
-    cplot = plt.imshow(abs(sp.hilbert(trace, axis=1)) * 1e9, extent=[time[0], time[-1], dist[0] / 1e3, dist[-1] / 1e3], cmap='jet', origin='lower',  aspect='auto', vmin=0, vmax=0.4, alpha=0.35)
-    plt.scatter(peaks_idx_HF[1] / fs, (peaks_idx_HF[0] * selected_channels[2] + selected_channels[0]) * dx /1e3, color='red', marker='.', label='HF_note')
-    plt.scatter(peaks_idx_LF[1] / fs, (peaks_idx_LF[0] * selected_channels[2] + selected_channels[0]) * dx /1e3, color='green', marker='.', label='LF_note')
+    fig = plt.figure(figsize=(12, 10))
+    cplot = plt.imshow(
+        abs(sp.hilbert(trace, axis=1)) * 1e9,
+        extent=[time[0], time[-1], dist[0] / 1e3, dist[-1] / 1e3],
+        cmap="jet",
+        origin="lower",
+        aspect="auto",
+        vmin=0,
+        vmax=0.4,
+        alpha=0.35,
+    )
+    plt.scatter(
+        peaks_idx_HF[1] / fs,
+        (peaks_idx_HF[0] * selected_channels[2] + selected_channels[0]) * dx / 1e3,
+        color="red",
+        marker=".",
+        label="HF_note",
+    )
+    plt.scatter(
+        peaks_idx_LF[1] / fs,
+        (peaks_idx_LF[0] * selected_channels[2] + selected_channels[0]) * dx / 1e3,
+        color="green",
+        marker=".",
+        label="LF_note",
+    )
     bar = fig.colorbar(cplot, aspect=30, pad=0.015)
-    bar.set_label('Strain Envelope [-] (x$10^{-9}$)')
-    plt.xlabel('Time [s]')  
-    plt.ylabel('Distance [km]')
+    bar.set_label("Strain Envelope [-] (x$10^{-9}$)")
+    plt.xlabel("Time [s]")
+    plt.ylabel("Distance [km]")
     plt.legend(loc="upper right")
     # plt.savefig('test.pdf', format='pdf')
 
@@ -569,18 +727,30 @@ def detection_mf(trace, peaks_idx_HF, peaks_idx_LF, time, dist, fs, dx, selected
         elif isinstance(title_time_info, str):
             title_text = title_time_info
         elif isinstance(title_time_info, int):
-            title_text = datetime.utcfromtimestamp(title_time_info).strftime("%Y-%m-%d %H:%M:%S")
+            title_text = datetime.utcfromtimestamp(title_time_info).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
         else:
-            raise ValueError("title_time_info must be an int, str, or datetime.datetime.")
-        plt.title(title_text, loc='right')
+            raise ValueError(
+                "title_time_info must be an int, str, or datetime.datetime."
+            )
+        plt.title(title_text, loc="right")
 
     plt.tight_layout()
     plt.show()
 
-    return
 
-
-def detection_spectcorr(trace, peaks_idx_HF, peaks_idx_LF, time, dist, spectro_fs, dx, selected_channels, title_time_info=None):
+def detection_spectcorr(
+    trace,
+    peaks_idx_HF,
+    peaks_idx_LF,
+    time,
+    dist,
+    spectro_fs,
+    dx,
+    selected_channels,
+    title_time_info=None,
+):
     """Plot the strain trace matrix [dist x time] with call detection above it
 
     Parameters
@@ -602,19 +772,41 @@ def detection_spectcorr(trace, peaks_idx_HF, peaks_idx_LF, time, dist, spectro_f
     selected_channels : list
         list of selected channels indexes [start, stop, step]
     title_time_info : int, str, or datetime.datetime, optional
-        A time reference to display or the plot title. Can be a UTC timestamp (int), 
+        A time reference to display or the plot title. Can be a UTC timestamp (int),
         a formatted string, or a `datetime.datetime` object (default is 0).
-    """    
+    """
 
-    fig = plt.figure(figsize=(12,10))
-    cplot = plt.imshow(abs(sp.hilbert(trace, axis=1)) * 1e9, extent=[time[0], time[-1], dist[0] / 1e3, dist[-1] / 1e3], cmap='jet', origin='lower',  aspect='auto', vmin=0, vmax=0.4, alpha=0.35, interpolation_stage='data')
-    plt.scatter(peaks_idx_HF[1] / spectro_fs, (peaks_idx_HF[0] * selected_channels[2] + selected_channels[0]) * dx /1e3, color='red', marker='x', label='HF call')
-    plt.scatter(peaks_idx_LF[1] / spectro_fs, (peaks_idx_LF[0] * selected_channels[2] + selected_channels[0]) * dx /1e3, color='green', marker='.', label='LF_note')
+    fig = plt.figure(figsize=(12, 10))
+    cplot = plt.imshow(
+        abs(sp.hilbert(trace, axis=1)) * 1e9,
+        extent=[time[0], time[-1], dist[0] / 1e3, dist[-1] / 1e3],
+        cmap="jet",
+        origin="lower",
+        aspect="auto",
+        vmin=0,
+        vmax=0.4,
+        alpha=0.35,
+        interpolation_stage="data",
+    )
+    plt.scatter(
+        peaks_idx_HF[1] / spectro_fs,
+        (peaks_idx_HF[0] * selected_channels[2] + selected_channels[0]) * dx / 1e3,
+        color="red",
+        marker="x",
+        label="HF call",
+    )
+    plt.scatter(
+        peaks_idx_LF[1] / spectro_fs,
+        (peaks_idx_LF[0] * selected_channels[2] + selected_channels[0]) * dx / 1e3,
+        color="green",
+        marker=".",
+        label="LF_note",
+    )
 
     bar = fig.colorbar(cplot, aspect=30, pad=0.015)
-    bar.set_label('Strain Envelope [-] (x$10^{-9}$)')
-    plt.xlabel('Time [s]')  
-    plt.ylabel('Distance [km]')
+    bar.set_label("Strain Envelope [-] (x$10^{-9}$)")
+    plt.xlabel("Time [s]")
+    plt.ylabel("Distance [km]")
     plt.legend(loc="upper right")
     # plt.savefig('test.pdf', format='pdf')
 
@@ -624,18 +816,22 @@ def detection_spectcorr(trace, peaks_idx_HF, peaks_idx_LF, time, dist, spectro_f
         elif isinstance(title_time_info, str):
             title_text = title_time_info
         elif isinstance(title_time_info, int):
-            title_text = datetime.utcfromtimestamp(title_time_info).strftime("%Y-%m-%d %H:%M:%S")
+            title_text = datetime.utcfromtimestamp(title_time_info).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
         else:
-            raise ValueError("title_time_info must be an int, str, or datetime.datetime.")
-        plt.title(title_text, loc='right')
+            raise ValueError(
+                "title_time_info must be an int, str, or datetime.datetime."
+            )
+        plt.title(title_text, loc="right")
 
     plt.tight_layout()
     plt.show()
 
-    return
 
-
-def detection_grad(trace, peaks_idx, time, dist, fs, dx, selected_channels, title_time_info=None):
+def detection_grad(
+    trace, peaks_idx, time, dist, fs, dx, selected_channels, title_time_info=None
+):
     """Plot the strain trace matrix [dist x time] with call detection above it
 
     Parameters
@@ -657,17 +853,33 @@ def detection_grad(trace, peaks_idx, time, dist, fs, dx, selected_channels, titl
     selected_channels : list
         list of selected channels indexes [start, stop, step]
     title_time_info : int, str, or datetime.datetime, optional
-        A time reference to display or the plot title. Can be a UTC timestamp (int), 
+        A time reference to display or the plot title. Can be a UTC timestamp (int),
         a formatted string, or a `datetime.datetime` object (default is 0).
-    """    
+    """
 
-    fig = plt.figure(figsize=(12,10))
-    cplot = plt.imshow(abs(sp.hilbert(trace, axis=1)) * 1e9, extent=[time[0], time[-1], dist[0] / 1e3, dist[-1] / 1e3], cmap='jet', origin='lower',  aspect='auto', vmin=0, vmax=0.4, alpha=0.35, interpolation_stage='data')
-    plt.scatter(peaks_idx[1] / fs, (peaks_idx[0] * selected_channels[2] + selected_channels[0]) * dx /1e3, color='red', marker='x', label='Fin call')
+    fig = plt.figure(figsize=(12, 10))
+    cplot = plt.imshow(
+        abs(sp.hilbert(trace, axis=1)) * 1e9,
+        extent=[time[0], time[-1], dist[0] / 1e3, dist[-1] / 1e3],
+        cmap="jet",
+        origin="lower",
+        aspect="auto",
+        vmin=0,
+        vmax=0.4,
+        alpha=0.35,
+        interpolation_stage="data",
+    )
+    plt.scatter(
+        peaks_idx[1] / fs,
+        (peaks_idx[0] * selected_channels[2] + selected_channels[0]) * dx / 1e3,
+        color="red",
+        marker="x",
+        label="Fin call",
+    )
     bar = fig.colorbar(cplot, aspect=30, pad=0.015)
-    bar.set_label('Strain Envelope [-] (x$10^{-9}$)')
-    plt.xlabel('Time [s]')  
-    plt.ylabel('Distance [km]')
+    bar.set_label("Strain Envelope [-] (x$10^{-9}$)")
+    plt.xlabel("Time [s]")
+    plt.ylabel("Distance [km]")
     plt.legend(loc="upper right")
     # plt.savefig('test.pdf', format='pdf')
 
@@ -677,15 +889,17 @@ def detection_grad(trace, peaks_idx, time, dist, fs, dx, selected_channels, titl
         elif isinstance(title_time_info, str):
             title_text = title_time_info
         elif isinstance(title_time_info, int):
-            title_text = datetime.utcfromtimestamp(title_time_info).strftime("%Y-%m-%d %H:%M:%S")
+            title_text = datetime.utcfromtimestamp(title_time_info).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
         else:
-            raise ValueError("title_time_info must be an int, str, or datetime.datetime.")
-        plt.title(title_text, loc='right')
+            raise ValueError(
+                "title_time_info must be an int, str, or datetime.datetime."
+            )
+        plt.title(title_text, loc="right")
 
     plt.tight_layout()
     plt.show()
-
-    return
 
 
 def snr_matrix(snr_m, time, dist, vmax, title_time_info=None):
@@ -701,33 +915,46 @@ def snr_matrix(snr_m, time, dist, vmax, title_time_info=None):
         distance vector along the cable
     vmax : float
         maximun value of the plot (dB)
-    """    
+    """
     fig = plt.figure(figsize=(12, 10))
-    snrp = plt.imshow(snr_m, extent=[time[0], time[-1], dist[0] / 1e3, dist[-1] / 1e3], cmap='turbo', origin='lower',  aspect='auto', vmin=0, vmax=vmax, interpolation_stage='data')
+    snrp = plt.imshow(
+        snr_m,
+        extent=[time[0], time[-1], dist[0] / 1e3, dist[-1] / 1e3],
+        cmap="turbo",
+        origin="lower",
+        aspect="auto",
+        vmin=0,
+        vmax=vmax,
+        interpolation_stage="data",
+    )
     bar = fig.colorbar(snrp, aspect=30, pad=0.015)
-    bar.set_label('SNR [dB]')
-    bar.ax.yaxis.set_major_formatter(tkr.FormatStrFormatter('%.0f'))
-    plt.xlabel('Time [s]')
-    plt.ylabel('Distance [km]')
-    
+    bar.set_label("SNR [dB]")
+    bar.ax.yaxis.set_major_formatter(tkr.FormatStrFormatter("%.0f"))
+    plt.xlabel("Time [s]")
+    plt.ylabel("Distance [km]")
+
     if title_time_info:
         if isinstance(title_time_info, datetime):
             title_text = title_time_info.strftime("%Y-%m-%d %H:%M:%S")
         elif isinstance(title_time_info, str):
             title_text = title_time_info
         elif isinstance(title_time_info, int):
-            title_text = datetime.utcfromtimestamp(title_time_info).strftime("%Y-%m-%d %H:%M:%S")
+            title_text = datetime.utcfromtimestamp(title_time_info).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
         else:
-            raise ValueError("title_time_info must be an int, str, or datetime.datetime.")
-        plt.title(title_text, loc='right')
+            raise ValueError(
+                "title_time_info must be an int, str, or datetime.datetime."
+            )
+        plt.title(title_text, loc="right")
 
     plt.tight_layout()
     plt.show()
 
-    return
 
-
-def plot_cross_correlogramHL(corr_m_HF, corr_m_LF, time, dist, maxv, minv=0, title_time_info=None):
+def plot_cross_correlogramHL(
+    corr_m_HF, corr_m_LF, time, dist, maxv, minv=0, title_time_info=None
+):
     """
     Plot the cross-correlogram between HF and LF notes.
 
@@ -746,7 +973,7 @@ def plot_cross_correlogramHL(corr_m_HF, corr_m_LF, time, dist, maxv, minv=0, tit
     minv : int, optional
         The minimum value for the colorbar. Default is 0.
     title_time_info : int, str, or datetime.datetime, optional
-        A time reference to display or the plot title. Can be a UTC timestamp (int), 
+        A time reference to display or the plot title. Can be a UTC timestamp (int),
         a formatted string, or a `datetime.datetime` object (default is 0).
 
     Returns
@@ -754,20 +981,38 @@ def plot_cross_correlogramHL(corr_m_HF, corr_m_LF, time, dist, maxv, minv=0, tit
     None
     """
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8), constrained_layout=True)
-    im1 = ax1.imshow(abs(sp.hilbert(corr_m_HF, axis=1)), extent=[time[0], time[-1], dist[0] / 1e3, dist[-1] / 1e3], cmap='turbo', origin='lower', aspect='auto', vmin=minv, vmax=maxv, interpolation_stage='data') 
-    ax1.set_xlabel('Time [s]') 
-    ax1.set_ylabel('Distance [km]') 
-    ax1.set_title('HF note', loc='right')
+    im1 = ax1.imshow(
+        abs(sp.hilbert(corr_m_HF, axis=1)),
+        extent=[time[0], time[-1], dist[0] / 1e3, dist[-1] / 1e3],
+        cmap="turbo",
+        origin="lower",
+        aspect="auto",
+        vmin=minv,
+        vmax=maxv,
+        interpolation_stage="data",
+    )
+    ax1.set_xlabel("Time [s]")
+    ax1.set_ylabel("Distance [km]")
+    ax1.set_title("HF note", loc="right")
 
-    im2 = ax2.imshow(abs(sp.hilbert(corr_m_LF, axis=1)), extent=[time[0], time[-1], dist[0] / 1e3, dist[-1] / 1e3], cmap='turbo',origin='lower', aspect='auto', vmin=minv, vmax=maxv, interpolation_stage='data') 
-    ax2.set_xlabel('Time [s]') 
-    ax2.set_title('LF note', loc='right')
+    im2 = ax2.imshow(
+        abs(sp.hilbert(corr_m_LF, axis=1)),
+        extent=[time[0], time[-1], dist[0] / 1e3, dist[-1] / 1e3],
+        cmap="turbo",
+        origin="lower",
+        aspect="auto",
+        vmin=minv,
+        vmax=maxv,
+        interpolation_stage="data",
+    )
+    ax2.set_xlabel("Time [s]")
+    ax2.set_title("LF note", loc="right")
 
-    cbar = fig.colorbar(im1, ax=[ax1, ax2], orientation='horizontal', aspect=50, pad=0.02) 
-    cbar.set_label('Cross-correlation envelope []')
+    cbar = fig.colorbar(
+        im1, ax=[ax1, ax2], orientation="horizontal", aspect=50, pad=0.02
+    )
+    cbar.set_label("Cross-correlation envelope []")
     plt.show()
-
-    return
 
 
 def plot_cross_correlogram(corr_m, time, dist, maxv, minv=0, title_time_info=None):
@@ -787,7 +1032,7 @@ def plot_cross_correlogram(corr_m, time, dist, maxv, minv=0, title_time_info=Non
     minv : int, optional
         The minimum value for the colorbar. Default is 0.
     title_time_info : int, str, or datetime.datetime, optional
-        A time reference to display or the plot title. Can be a UTC timestamp (int), 
+        A time reference to display or the plot title. Can be a UTC timestamp (int),
         a formatted string, or a `datetime.datetime` object (default is 0).
 
     Returns
@@ -795,19 +1040,37 @@ def plot_cross_correlogram(corr_m, time, dist, maxv, minv=0, title_time_info=Non
     None
     """
     fig, ax = plt.subplots(figsize=(12, 10), constrained_layout=True)
-    im = ax.imshow(abs(sp.hilbert(corr_m, axis=1)), extent=[time[0], time[-1], dist[0] / 1e3, dist[-1] / 1e3], cmap='turbo', origin='lower', aspect='auto', vmin=minv, vmax=maxv, interpolation_stage='data') 
-    ax.set_xlabel('Time [s]') 
-    ax.set_ylabel('Distance [km]') 
-    ax.set_title('Cross-correlogram', loc='right')
+    im = ax.imshow(
+        abs(sp.hilbert(corr_m, axis=1)),
+        extent=[time[0], time[-1], dist[0] / 1e3, dist[-1] / 1e3],
+        cmap="turbo",
+        origin="lower",
+        aspect="auto",
+        vmin=minv,
+        vmax=maxv,
+        interpolation_stage="data",
+    )
+    ax.set_xlabel("Time [s]")
+    ax.set_ylabel("Distance [km]")
+    ax.set_title("Cross-correlogram", loc="right")
 
-    cbar = fig.colorbar(im, ax=ax, orientation='horizontal', aspect=50, pad=0.02) 
-    cbar.set_label('Cross-correlation envelope []')
+    cbar = fig.colorbar(im, ax=ax, orientation="horizontal", aspect=50, pad=0.02)
+    cbar.set_label("Cross-correlation envelope []")
     plt.show()
 
-    return
 
-
-def plot_fk_domain(trace, fs, dx, selected_channels, title_time_info=0, fig_size=(12, 10), v_min=None, v_max=None, fk_params=None, ax_lims=None):
+def plot_fk_domain(
+    trace,
+    fs,
+    dx,
+    selected_channels,
+    title_time_info=0,
+    fig_size=(12, 10),
+    v_min=None,
+    v_max=None,
+    fk_params=None,
+    ax_lims=None,
+):
     """
     Spatio-spectral representation (f-k plot) of the strain data
 
@@ -822,7 +1085,7 @@ def plot_fk_domain(trace, fs, dx, selected_channels, title_time_info=0, fig_size
     selected_channels : list
         List of selected channels indexes [start, stop, step]
     title_time_info : int, str, or datetime.datetime, optional
-        A time reference to display or the plot title. Can be a UTC timestamp (int), 
+        A time reference to display or the plot title. Can be a UTC timestamp (int),
         a formatted string, or a `datetime.datetime` object (default is 0).
     fig_size : tuple, optional
         Tuple of the figure dimensions, by default (12, 10)
@@ -851,7 +1114,7 @@ def plot_fk_domain(trace, fs, dx, selected_channels, title_time_info=0, fig_size
     >>> plot_fk_domain(trace, time, dist, title_time_info=0, fig_size=(12, 10), v_min=None, v_max=None)
 
     """
-    f = np.fft.fftshift(np.fft.fftfreq(trace.shape[1], d=1 / fs))   
+    f = np.fft.fftshift(np.fft.fftfreq(trace.shape[1], d=1 / fs))
     k = np.fft.fftshift(np.fft.fftfreq(trace.shape[0], d=dx * selected_channels[2]))
 
     # Taper the data
@@ -861,198 +1124,326 @@ def plot_fk_domain(trace, fs, dx, selected_channels, title_time_info=0, fig_size
     # win_2d = np.sqrt(np.outer(win_y, win_x))
     fk = np.fft.fftshift(np.fft.fft2(trace))
 
-
     fig = plt.figure(figsize=fig_size)
-    shw = plt.imshow(abs(fk), extent=[f[0], f[-1], k[0], k[-1]], aspect='auto', origin='lower', cmap='turbo', vmin=v_min, vmax=v_max, interpolation_stage='data')
-    plt.xlabel('Frequency [Hz]')
-    plt.ylabel('Wavenumber [m$^{-1}$]')
+    shw = plt.imshow(
+        abs(fk),
+        extent=[f[0], f[-1], k[0], k[-1]],
+        aspect="auto",
+        origin="lower",
+        cmap="turbo",
+        vmin=v_min,
+        vmax=v_max,
+        interpolation_stage="data",
+    )
+    plt.xlabel("Frequency [Hz]")
+    plt.ylabel("Wavenumber [m$^{-1}$]")
     bar = fig.colorbar(shw, aspect=30, pad=0.015)
-    bar.set_label('Amplitude [arbitrary units]')
+    bar.set_label("Amplitude [arbitrary units]")
     if fk_params is not None:
-        plt.vlines(fk_params['fmin'], k[0], k[-1], color='tab:orange', linestyle='--', label='fmin', lw=2)
-        plt.vlines(fk_params['fmax'], k[0], k[-1], color='tab:red', linestyle='--', label='fmax', lw=2)
-        plt.plot(f, f / fk_params['c_min'], color='tab:pink', linestyle='--', label=f'c = {fk_params["c_min"]:.2f} m/s', lw=2)
-        plt.plot(f, f / fk_params['c_max'], color='white', linestyle='--', label=f'c = {fk_params["c_max"]:.2f} m/s', lw=2)
-        
+        plt.vlines(
+            fk_params["fmin"],
+            k[0],
+            k[-1],
+            color="tab:orange",
+            linestyle="--",
+            label="fmin",
+            lw=2,
+        )
+        plt.vlines(
+            fk_params["fmax"],
+            k[0],
+            k[-1],
+            color="tab:red",
+            linestyle="--",
+            label="fmax",
+            lw=2,
+        )
+        plt.plot(
+            f,
+            f / fk_params["c_min"],
+            color="tab:pink",
+            linestyle="--",
+            label=f"c = {fk_params['c_min']:.2f} m/s",
+            lw=2,
+        )
+        plt.plot(
+            f,
+            f / fk_params["c_max"],
+            color="white",
+            linestyle="--",
+            label=f"c = {fk_params['c_max']:.2f} m/s",
+            lw=2,
+        )
+
     if title_time_info:
         if isinstance(title_time_info, datetime):
             title_text = title_time_info.strftime("%Y-%m-%d %H:%M:%S")
         elif isinstance(title_time_info, str):
             title_text = title_time_info
         elif isinstance(title_time_info, int):
-            title_text = datetime.utcfromtimestamp(title_time_info).strftime("%Y-%m-%d %H:%M:%S")
+            title_text = datetime.utcfromtimestamp(title_time_info).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
         else:
-            raise ValueError("title_time_info must be an int, str, or datetime.datetime.")
-        plt.title(title_text, loc='right')
-    
+            raise ValueError(
+                "title_time_info must be an int, str, or datetime.datetime."
+            )
+        plt.title(title_text, loc="right")
+
     if ax_lims is not None:
         plt.xlim(ax_lims[0], ax_lims[1])
         plt.ylim(ax_lims[2], ax_lims[3])
         # plt.xlim([12, 30])
         # plt.ylim([0, 0.025])
-    
+
     # Display legend if needed
     if fk_params is not None:
         plt.legend()
-    
+
     plt.tight_layout()
     # plt.show()
-    return
 
 
-def plot_associated(peaks, longi_offset, associated_list, localizations, cable_pos, dist, dx, c0, fs):
-    plt.figure(figsize=(20,8))
+def plot_associated(
+    peaks, longi_offset, associated_list, localizations, cable_pos, dist, dx, c0, fs
+):
+    plt.figure(figsize=(20, 8))
 
     # Plot the time picks with colored associated ones
     plt.subplot(1, 2, 1)
-    plt.scatter(peaks[1][:] / fs, (longi_offset + peaks[0][:]) * dx * 1e-3, label='LF', s=0.5, alpha=0.2, color='tab:grey')
+    plt.scatter(
+        peaks[1][:] / fs,
+        (longi_offset + peaks[0][:]) * dx * 1e-3,
+        label="LF",
+        s=0.5,
+        alpha=0.2,
+        color="tab:grey",
+    )
     for i, select in enumerate(associated_list):
-        plt.scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3, label='LF', s=0.5)
+        plt.scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            label="LF",
+            s=0.5,
+        )
     plt.xlim(0, 60)
-    plt.xlabel('Time [s]')
-    plt.ylabel('Distance [km]')
+    plt.xlabel("Time [s]")
+    plt.ylabel("Distance [km]")
 
     # Plot the time picks with the the predicted hyperbola
     plt.subplot(1, 2, 2)
     for i, select in enumerate(associated_list):
-        plt.scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3, label='LF', s=0.5)
-        plt.plot(dw.loc.calc_arrival_times(localizations[i][-1], cable_pos, localizations[i][:3], c0), dist/1e3, color='tab:grey', ls='-', lw=2, alpha=0.7)
+        plt.scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            label="LF",
+            s=0.5,
+        )
+        plt.plot(
+            dw.loc.calc_arrival_times(
+                localizations[i][-1], cable_pos, localizations[i][:3], c0
+            ),
+            dist / 1e3,
+            color="tab:grey",
+            ls="-",
+            lw=2,
+            alpha=0.7,
+        )
         # plt.plot(select[1][:] / fs, dw.loc.calc_arrival_times(0, cable_pos, alt_localizations[i][:3], c0), color='tab:orange', ls='-', lw=1)
-    plt.grid(linestyle='--', alpha=0.6)
-    plt.xlabel('Time [s]')
-    plt.ylabel('Distance [km]')
+    plt.grid(linestyle="--", alpha=0.6)
+    plt.xlabel("Time [s]")
+    plt.ylabel("Distance [km]")
     plt.show()
 
 
-def plot_reject_pick(peaks, longi_offset, dist, dx, associated_list, rejected_list, rejected_hyperbolas, fs):
+def plot_reject_pick(
+    peaks,
+    longi_offset,
+    dist,
+    dx,
+    associated_list,
+    rejected_list,
+    rejected_hyperbolas,
+    fs,
+):
     # Plot the selected picks alongside the original picks
-    plt.figure(figsize=(20,8))
+    plt.figure(figsize=(20, 8))
     plt.subplot(2, 2, 1)
-    plt.scatter(peaks[1][:] / fs, (longi_offset + peaks[0][:]) * dx * 1e-3, label='HF', s=0.5)
-    plt.xlabel('Time [s]')
-    plt.ylabel('Distance [km]')
+    plt.scatter(
+        peaks[1][:] / fs, (longi_offset + peaks[0][:]) * dx * 1e-3, label="HF", s=0.5
+    )
+    plt.xlabel("Time [s]")
+    plt.ylabel("Distance [km]")
     plt.subplot(2, 2, 2)
     for select in associated_list:
-        plt.scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3, label='LF', s=0.5)
-    plt.xlabel('Time [s]') 
+        plt.scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            label="LF",
+            s=0.5,
+        )
+    plt.xlabel("Time [s]")
     # Plot the deleted hyperbolas
     plt.subplot(2, 2, 3)
     for hyp in rejected_hyperbolas:
-        plt.plot(hyp, dist/1e3, label='Rejected hyperbola')
-    plt.xlabel('Time [s]')
-    plt.ylabel('Distance [km]')
+        plt.plot(hyp, dist / 1e3, label="Rejected hyperbola")
+    plt.xlabel("Time [s]")
+    plt.ylabel("Distance [km]")
     # plot the rejected picks
     plt.subplot(2, 2, 4)
     for select in rejected_list:
-        plt.scatter(select[1][:] / fs, (longi_offset + select[0][:]) * dx * 1e-3, label='LF', s=0.5)
-    plt.xlabel('Time [s]')
+        plt.scatter(
+            select[1][:] / fs,
+            (longi_offset + select[0][:]) * dx * 1e-3,
+            label="LF",
+            s=0.5,
+        )
+    plt.xlabel("Time [s]")
     plt.show()
 
 
-def plot_pick_analysis(associated_list, fs, dx, longi_offset, cable_pos, dist, window_size=5, mu_ref=None, sigma_ref=None):
-        """
-        Create detailed plots of seismic picks with continuity analysis and a normalized curvature score.
-        
-        Parameters:
-        -----------
-        associated_list : list
-            List of tuples containing pick coordinates and times
-        fs : float
-            Sampling frequency
-        dx : float
-            Spatial sampling interval
-        longi_offset : float
-            Longitudinal offset value
-        window_size : float, optional
-            Size of analysis window in seconds (default: 5)
-        mu_ref : float, optional
-            Reference mean curvature for normalization (default: computed from data)
-        sigma_ref : float, optional
-            Reference standard deviation of curvature for normalization (default: computed from data)
-        
-        Returns:
-        --------
-        fig : matplotlib.figure.Figure
-            The created figure object
-        """
-        
-        fig = plt.figure(figsize=(24, 8))
-        
-        curvature_means = []
-        curvature_stds = []
-        
-        for i, select in enumerate(associated_list):
-            times = select[1][:] / fs
-            distances = (longi_offset + select[0][:]) * dx * 1e-3
-            
-            ax = plt.subplot(1, 2*len(associated_list), (i + 1) * 2 - 1)
-            if i == 0:
-                ax.set_ylabel('Distance [km]')
-            ax.scatter(times, distances, label='All Picks', s=0.5, color='gray', alpha=0.5)
-            
-            window_mask = (times > np.min(times)) & (times < np.min(times) + window_size)
-            window_times = times[window_mask]
-            window_distances = distances[window_mask]
-            
-            ax.plot(window_times, window_distances, 
-                    label='Windowed Picks', 
-                    lw=2, 
-                    color='tab:red', 
-                    alpha=0.6)
-            # Calulate least squares fit
-            idxmin_t = np.argmin(select[1][:])
-            apex_loc = cable_pos[:, 0][select[0][idxmin_t]]
-            Ti = select[1][:] / fs
-            Nbiter = 20
+def plot_pick_analysis(
+    associated_list,
+    fs,
+    dx,
+    longi_offset,
+    cable_pos,
+    dist,
+    window_size=5,
+    mu_ref=None,
+    sigma_ref=None,
+):
+    """
+    Create detailed plots of seismic picks with continuity analysis and a normalized curvature score.
 
-            # Initial guess (apex_loc, mean_y, -30m, min(Ti))
-            n_init = [apex_loc, np.mean(cable_pos[:,1]), -40, np.min(Ti)]
+    Parameters:
+    -----------
+    associated_list : list
+        List of tuples containing pick coordinates and times
+    fs : float
+        Sampling frequency
+    dx : float
+        Spatial sampling interval
+    longi_offset : float
+        Longitudinal offset value
+    window_size : float, optional
+        Size of analysis window in seconds (default: 5)
+    mu_ref : float, optional
+        Reference mean curvature for normalization (default: computed from data)
+    sigma_ref : float, optional
+        Reference standard deviation of curvature for normalization (default: computed from data)
 
-            # Solve the least squares problem
-            n, residuals = dw.loc.solve_lq(Ti, cable_pos[select[0][:]], c0, Nbiter, fix_z=True, ninit=n_init, residuals=True)
-            loc_hyerbola = dw.loc.calc_arrival_times(n[-1], cable_pos, n[:3], c0)
-            test = np.cumsum(abs(residuals))
-            # rms residual
-            rms = np.sqrt(np.mean(residuals[window_mask]**2))
-            # rms *= 1e4
+    Returns:
+    --------
+    fig : matplotlib.figure.Figure
+        The created figure object
+    """
 
-            left_cs = np.cumsum(abs(residuals[idxmin_t::-1]))
-            right_cs = np.cumsum(abs(residuals[idxmin_t:]))
-            mod_cs = np.concatenate((left_cs[::-1], right_cs[1:]))
+    fig = plt.figure(figsize=(24, 8))
 
-            mask_resi = mod_cs < 1500
-            # plot indexes for which only the cumulative sum is less than 1000
-            ax.scatter(select[1][mask_resi] / fs, (longi_offset + select[0][mask_resi]) * dx * 1e-3, label='HF', s=1, color='tab:blue')
-            ax.plot(loc_hyerbola, dist/1e3, label='Hyperbola', color='tab:green', alpha=0.5)
+    curvature_means = []
+    curvature_stds = []
 
-            # Plot residuals
-            # ax.plot(abs(residuals), distances, label='Residuals', color='tab:orange', alpha=0.5)
-            # ax.plot(abs(residuals[window_mask]), window_distances, label='Windowed Residuals', color='tab:blue', alpha=0.5)
-            # ax.plot(np.cumsum(residuals), distances, label='Cumulative Residuals', color='tab:green', alpha=0.5)
-            
+    for i, select in enumerate(associated_list):
+        times = select[1][:] / fs
+        distances = (longi_offset + select[0][:]) * dx * 1e-3
 
-            # Calculate curvature
-            ddx = np.diff(window_times)
-            ddy = np.diff(window_distances)
-            ddx2 = np.diff(ddx)
-            ddy2 = np.diff(ddy)
-            curvature = np.abs(ddx2 * ddy[1:] - ddx[1:] * ddy2) / (ddx[1:]**2 + ddy[1:]**2)**(3/2)
-            # curvature = curvature[curvature > 10e-10]
-            curvature_mean = np.mean(curvature)
+        ax = plt.subplot(1, 2 * len(associated_list), (i + 1) * 2 - 1)
+        if i == 0:
+            ax.set_ylabel("Distance [km]")
+        ax.scatter(times, distances, label="All Picks", s=0.5, color="gray", alpha=0.5)
 
-            ax.set_title(f"Pick Analysis\n"
-                            f"$\\mu_k$ = {compute_curvature(window_times, window_distances):.2f}\n"
-                            f"$\\mu_r$ = {np.mean(abs(residuals[window_mask])):.2f}\n"
-                            f"$RMS$ = {rms:.2f}\n",
-                            fontsize=10)
-            ax.set_xlabel('Time [s]')
-            
-            ax = plt.subplot(1, 2*len(associated_list), (i + 2) * 2 - 2)
-            ax.plot(mod_cs, distances, label='Modified Cumulative Residuals', color='tab:purple', alpha=0.5)
-            ax.set_xlabel('Cumulative Residuals')
-            
-        plt.tight_layout()
-        return fig
+        window_mask = (times > np.min(times)) & (times < np.min(times) + window_size)
+        window_times = times[window_mask]
+        window_distances = distances[window_mask]
+
+        ax.plot(
+            window_times,
+            window_distances,
+            label="Windowed Picks",
+            lw=2,
+            color="tab:red",
+            alpha=0.6,
+        )
+        # Calulate least squares fit
+        idxmin_t = np.argmin(select[1][:])
+        apex_loc = cable_pos[:, 0][select[0][idxmin_t]]
+        Ti = select[1][:] / fs
+        Nbiter = 20
+
+        # Initial guess (apex_loc, mean_y, -30m, min(Ti))
+        n_init = [apex_loc, np.mean(cable_pos[:, 1]), -40, np.min(Ti)]
+
+        # Solve the least squares problem
+        n, residuals = dw.loc.solve_lq(
+            Ti,
+            cable_pos[select[0][:]],
+            c0,
+            Nbiter,
+            fix_z=True,
+            ninit=n_init,
+            residuals=True,
+        )
+        loc_hyerbola = dw.loc.calc_arrival_times(n[-1], cable_pos, n[:3], c0)
+        test = np.cumsum(abs(residuals))
+        # rms residual
+        rms = np.sqrt(np.mean(residuals[window_mask] ** 2))
+        # rms *= 1e4
+
+        left_cs = np.cumsum(abs(residuals[idxmin_t::-1]))
+        right_cs = np.cumsum(abs(residuals[idxmin_t:]))
+        mod_cs = np.concatenate((left_cs[::-1], right_cs[1:]))
+
+        mask_resi = mod_cs < 1500
+        # plot indexes for which only the cumulative sum is less than 1000
+        ax.scatter(
+            select[1][mask_resi] / fs,
+            (longi_offset + select[0][mask_resi]) * dx * 1e-3,
+            label="HF",
+            s=1,
+            color="tab:blue",
+        )
+        ax.plot(
+            loc_hyerbola, dist / 1e3, label="Hyperbola", color="tab:green", alpha=0.5
+        )
+
+        # Plot residuals
+        # ax.plot(abs(residuals), distances, label='Residuals', color='tab:orange', alpha=0.5)
+        # ax.plot(abs(residuals[window_mask]), window_distances, label='Windowed Residuals', color='tab:blue', alpha=0.5)
+        # ax.plot(np.cumsum(residuals), distances, label='Cumulative Residuals', color='tab:green', alpha=0.5)
+
+        # Calculate curvature
+        ddx = np.diff(window_times)
+        ddy = np.diff(window_distances)
+        ddx2 = np.diff(ddx)
+        ddy2 = np.diff(ddy)
+        curvature = np.abs(ddx2 * ddy[1:] - ddx[1:] * ddy2) / (
+            ddx[1:] ** 2 + ddy[1:] ** 2
+        ) ** (3 / 2)
+        # curvature = curvature[curvature > 10e-10]
+        curvature_mean = np.mean(curvature)
+
+        ax.set_title(
+            f"Pick Analysis\n"
+            f"$\\mu_k$ = {compute_curvature(window_times, window_distances):.2f}\n"
+            f"$\\mu_r$ = {np.mean(abs(residuals[window_mask])):.2f}\n"
+            f"$RMS$ = {rms:.2f}\n",
+            fontsize=10,
+        )
+        ax.set_xlabel("Time [s]")
+
+        ax = plt.subplot(1, 2 * len(associated_list), (i + 2) * 2 - 2)
+        ax.plot(
+            mod_cs,
+            distances,
+            label="Modified Cumulative Residuals",
+            color="tab:purple",
+            alpha=0.5,
+        )
+        ax.set_xlabel("Cumulative Residuals")
+
+    plt.tight_layout()
+    return fig
 
 
 def import_roseus():
@@ -1324,8 +1715,9 @@ def import_roseus():
         [0.976355, 0.971737, 0.950704],
         [0.983195, 0.975580, 0.960181],
         [0.990402, 0.979395, 0.968966],
-        [0.997930, 0.983217, 0.976920],]
-    return ListedColormap(roseus_data, name='Roseus')
+        [0.997930, 0.983217, 0.976920],
+    ]
+    return ListedColormap(roseus_data, name="Roseus")
 
 
 def import_parula():
@@ -1338,6 +1730,7 @@ def import_parula():
         colormap
     """
     from matplotlib.colors import ListedColormap
+
     # Parula colormap data
     parula_data = cm_data = [
         [0.2422, 0.1504, 0.6603],
@@ -1595,5 +1988,6 @@ def import_parula():
         [0.9711, 0.9667, 0.1001],
         [0.973, 0.9724, 0.0938],
         [0.9749, 0.9782, 0.0872],
-        [0.9769, 0.9839, 0.0805]]
-    return ListedColormap(parula_data, name='Parula')
+        [0.9769, 0.9839, 0.0805],
+    ]
+    return ListedColormap(parula_data, name="Parula")

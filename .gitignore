@@ -73,3 +73,6 @@ evaluation/
 
 # GMT files
 *.conf
+
+# Development notebooks
+devnotebooks/

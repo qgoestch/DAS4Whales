@@ -1,4 +1,16 @@
-from das4whales import data_handle, dsp, plot, dask_wrap, tools, detect, improcess, loc, map, spatial, assoc
-__version__ = "0.2.2"
-__author__ = 'Léa Bouffaut, Quentin Goestchel'
+from das4whales import (
+    assoc,
+    dask_wrap,
+    data_handle,
+    detect,
+    dsp,
+    improcess,
+    loc,
+    map,
+    plot,
+    spatial,
+    tools,
+)
 
+__version__ = "0.2.2"
+__author__ = "Léa Bouffaut, Quentin Goestchel"

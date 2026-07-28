@@ -75,4 +75,4 @@ evaluation/
 *.conf
 
 # Development notebooks
-/devnotbooks/
+devnotebooks/

@@ -13,10 +13,9 @@ from __future__ import annotations
 import csv
 import os
 import re
-from datetime import datetime, timedelta, timezone
-from typing import Any
+from datetime import datetime, timezone, timedelta
+from typing import Dict, List, Optional, Tuple, Union, Any
 from urllib.parse import urljoin
-
 import dask.array as da
 import h5py
 import numpy as np
@@ -45,7 +44,7 @@ def hello_world_das_package() -> None:
 # Definition of the functions for DAS data conditioning
 def get_acquisition_parameters(
     filepath: str, interrogator: str = "optasense"
-) -> dict[str, Any] | None:
+) -> Optional[Dict[str, Any]]:
     """
     Retrieve acquisition parameters based on the specified interrogator.
 
@@ -106,7 +105,7 @@ def get_acquisition_parameters(
     return metadata
 
 
-def get_metadata_optasense(filepath: str) -> dict[str, Any]:
+def get_metadata_optasense(filepath: str) -> Dict[str, Any]:
     """Gets DAS acquisition parameters for the optasense interrogator e.g., OOI South C1 data
 
     Parameters
@@ -124,7 +123,7 @@ def get_metadata_optasense(filepath: str) -> dict[str, Any]:
         ns: the number of time samples\n
         n: refractive index of the fiber\n
         GL: the gauge length (m)\n
-        scale_factor: the value to convert DAS data from unwrapped optical phase (rad) to strain
+        scale_factor: the value to convert DAS data from strain rate to strain
 
     """
     # Make sure the file exists
@@ -173,7 +172,7 @@ def get_metadata_optasense(filepath: str) -> dict[str, Any]:
     return meta_data
 
 
-def get_metadata_silixa(filepath: str) -> dict[str, Any]:
+def get_metadata_silixa(filepath: str) -> Dict[str, Any]:
     """
     Gets DAS acquisition parameters for the silixa interrogator
 
@@ -192,7 +191,8 @@ def get_metadata_silixa(filepath: str) -> dict[str, Any]:
         ns: the number of time samples\n
         n: refractive index of the fiber\n
         GL: the gauge length (m)\n
-        scale_factor: the value to convert DAS data from unwrapped optical phase (rad) to strain
+        scale_factor: the value to convert DAS data from strain rate to strain
+
     """
 
     # Make sure the file exists
@@ -230,7 +230,7 @@ def get_metadata_silixa(filepath: str) -> dict[str, Any]:
     return meta_data
 
 
-def get_metadata_asn(filepath: str) -> dict[str, Any]:
+def get_metadata_asn(filepath: str) -> Dict[str, Any]:
     """
     Gets DAS acquisition parameters for the ASN interrogator e.g., Svalbard data
 
@@ -248,15 +248,18 @@ def get_metadata_asn(filepath: str) -> dict[str, Any]:
         nx: the number of spatial samples also called channels\n
         ns: the number of time samples\n
         GL: the gauge length (m)\n
-        scale_factor: the value to convert DAS data to strain (strain rate?)
+        scale_factor: the value to convert DAS data from strain rate to strain
 
     """
 
     fp = h5py.File(filepath, "r")
 
     fs = 1 / fp["header"]["dt"][()]  # sampling rate in Hz
-    dx = fp["header"]["dx"][()] * fp["demodSpec"]["roiDec"][()]  # channel spacing in m
-    dx = dx[0]
+    dx = (
+        fp["cableSpec"]["sensorDistances"][()][1]
+        - fp["cableSpec"]["sensorDistances"][()][0]
+    )  # fp['header']['dx'][()] * fp['demodSpec']['roiDec'][()]  # channel spacing in m
+    dx = float(dx)  # dx[0]
     nx = fp["header"]["dimensionRanges"]["dimension1"]["size"][()]  # number of channels
     nx = nx[0]
     ns = fp["header"]["dimensionRanges"]["dimension0"]["size"][()]  # number of samples
@@ -264,7 +267,12 @@ def get_metadata_asn(filepath: str) -> dict[str, Any]:
     n = fp["cableSpec"].get(
         "refractiveIndex", fp["cableSpec"].get("refractiveIndexes")
     )[()]  # refractive index of the fiber
-    scale_factor = fp["header"]["sensitivities"][()]
+    data_scale = fp["header"]["dataScale"][
+        ()
+    ]  # Scaling factor to multiply in order to express data in unit.
+    sensitivity = fp["header"]["sensitivities"][()]
+    scale_factor = sensitivity  / data_scale
+    print(scale_factor)
 
     start_dist = fp["demodSpec"]["roiStart"][()] * fp["header"]["dx"][()]
     end_dist = fp["demodSpec"]["roiEnd"][()] * fp["header"]["dx"][()] + dx
@@ -282,7 +290,7 @@ def get_metadata_asn(filepath: str) -> dict[str, Any]:
     return meta_data
 
 
-def get_metadata_onyx(filepath: str) -> dict[str, Any]:
+def get_metadata_onyx(filepath: str) -> Dict[str, Any]:
     """Gets DAS acquisition parameters for the onyx interrogator
 
     Parameters
@@ -300,7 +308,7 @@ def get_metadata_onyx(filepath: str) -> dict[str, Any]:
         ns: the number of time samples\n
         n: refractive index of the fiber\n
         GL: the gauge length (m)\n
-        scale_factor: the value to convert DAS data from unwrapped optical phase (rad) to strain
+        scale_factor: the value to convert DAS data from strain rate to strain
 
     """
 
@@ -406,9 +414,9 @@ def get_metadata_fosina_dxs(filepath):
 
 
 # Load/download das data as strain
-def raw2strain(trace: np.ndarray, metadata: dict[str, Any]) -> np.ndarray:
+def raw2strain(trace: np.ndarray, metadata: Dict[str, Any]) -> np.ndarray:
     """
-    Transform the amplitude of raw das data from unwrapped optical phase (rad) to strain according to scale factor
+    Transform the amplitude of raw das data from strain-rate to strain according to scale factor
 
 
     Parameters
@@ -432,11 +440,11 @@ def raw2strain(trace: np.ndarray, metadata: dict[str, Any]) -> np.ndarray:
 
 
 def load_das_data(
-    filename: str,
-    selected_channels: list[int],
-    metadata: dict[str, Any],
+    filename: list[str],
+    selected_channels: List[int],
+    metadata: Dict[str, Any],
     interrogator: str = "optasense",
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, datetime]:
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, datetime]:
     """
     Load the DAS data corresponding to the input file name as strain according to the selected channels.
 
@@ -462,8 +470,11 @@ def load_das_data(
     file_begin_time_utc : datetime.datetime
         The beginning time of the file, can be printed using file_begin_time_utc.strftime("%Y-%m-%d %H:%M:%S").
     """
-    if not os.path.exists(filename):
-        raise FileNotFoundError(f"File {filename} not found")
+    if type(filename) != list:
+        filename = [filename]
+    for f in filename:
+        if not os.path.exists(f):
+            raise FileNotFoundError(f"File {f} not found")
 
     if interrogator in ["optasense", "silixa", "onyx"]:
         with h5py.File(filename, "r") as fp:
@@ -574,12 +585,12 @@ def load_das_data(
 
 
 def load_mtpl_das_data(
-    filepaths: list[str],
-    selected_channels: list[int],
-    metadata: dict[str, Any],
+    filepaths: List[str],
+    selected_channels: List[int],
+    metadata: Dict[str, Any],
     timestamp: str,
     time_window: float,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, datetime]:
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, datetime]:
     """
     Load the DAS data corresponding to the input file names as strain according to the selected channels. Takes multiple files as input and concatenates them along the time axis starting from the input timestamp for the input time window.
 
@@ -675,7 +686,7 @@ def load_mtpl_das_data(
     return tr.compute(), time, dist, file_begin_time_utc
 
 
-def dl_file(url: str) -> tuple[str, str]:
+def dl_file(url: str) -> Tuple[str, str]:
     """Download the file at the given url
 
     Parameters
@@ -727,8 +738,8 @@ def load_cable_coordinates(filepath: str, dx: float) -> pd.DataFrame:
 
 
 def get_cable_lat_lon_depth(
-    file: str, selected_channels: tuple[int, int, int]
-) -> dict[str, list[float]]:
+    file: str, selected_channels: Tuple[int, int, int]
+) -> Dict[str, List[float]]:
     """
     Extract latitude, longitude, and depth information from a CSV or TXT file for selected cable channels.
 
@@ -815,7 +826,7 @@ def load_annotation_csv(filepath: str) -> pd.DataFrame:
 
 
 def calc_dist_to_xidx(
-    x: float, selected_channels_m: list[float], selected_channels: list[int], dx: float
+    x: float, selected_channels_m: List[float], selected_channels: List[int], dx: float
 ) -> int:
     """
     Calculate the index of the channel closest to the given distance.
@@ -839,7 +850,7 @@ def calc_dist_to_xidx(
     return int((x - selected_channels_m[0]) / (dx * selected_channels[2]))
 
 
-def get_selected_channels(selected_channels_m: list[float], dx: float) -> list[int]:
+def get_selected_channels(selected_channels_m: List[float], dx: float) -> List[int]:
     """
     Get the selected channels in channel numbers.
 
@@ -864,7 +875,7 @@ def get_selected_channels(selected_channels_m: list[float], dx: float) -> list[i
     return selected_channels
 
 
-def extract_timestamp(filename: str) -> datetime | None:
+def extract_timestamp(filename: str) -> Optional[datetime]:
     """Extract timestamp from filename in format YYYY-MM-DDTHHMMSSZ."""
     match = re.search(r"(\d{4}-\d{2}-\d{2}T\d{6})Z", filename)
     if match:
@@ -874,7 +885,7 @@ def extract_timestamp(filename: str) -> datetime | None:
     return None
 
 
-def generate_file_list(base_url: str, start_file: str, duration: int) -> list[str]:
+def generate_file_list(base_url: str, start_file: str, duration: int) -> List[str]:
     """
     Generate a list of file URLs that correspond to a given time range, starting from a known file.
 

@@ -186,7 +186,7 @@ def compute_cross_correlogram(data: np.ndarray, template: np.ndarray) -> np.ndar
 
 def calc_nmf(data: np.ndarray, template: np.ndarray) -> np.ndarray:
     """
-    Calculate the normalized matched filter between the input data and the template.
+    Calculate the normalized matched filter between the input data and the template for one channel.
 
     Parameters
     ----------
@@ -222,10 +222,7 @@ def calc_nmf_correlogram(data: np.ndarray, template: np.ndarray) -> np.ndarray:
     numpy.ndarray
         The normalized matched filter correlogram array.
     """
-    # Normalize data along axis 1 by its maximum (peak normalization)
-    norm_data = (data - np.mean(data, axis=1, keepdims=True)) / np.max(
-        np.abs(data), axis=1, keepdims=True
-    )
+
     template = (template - np.mean(template)) / np.max(np.abs(template))
 
     # Compute correlation along axis 1
@@ -269,7 +266,8 @@ def pick_times_env(corr_m: np.ndarray, threshold: float) -> list[np.ndarray]:
         peaks_indexes = sp.find_peaks(abs(sp.hilbert(corr)), prominence=threshold)[
             0
         ]  # Change distance in indexes, ex: 'distance=200'
-        peaks_indexes, _ = sp.find_peaks(corr, distance=ipi * fs, height=th)
+        # peaks_indexes, _ = sp.find_peaks(corr, distance=ipi * fs, height=th)
+        # TODO Quentin gere tes trucs
 
         peaks_indexes_m.append(peaks_indexes)
 

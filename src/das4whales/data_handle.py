@@ -53,7 +53,7 @@ def get_acquisition_parameters(
     filepath : str
         The file path to the data file.
     interrogator : str, optional
-        The interrogator type, one of {'optasense', 'silixa', 'mars', 'alcatel', 'onyx', }.
+        The interrogator type, one of {'optasense', 'silixa', 'mars', 'alcatel', 'onyx', 'asn'}.
         Defaults to 'optasense'.
 
     Returns
@@ -78,6 +78,7 @@ def get_acquisition_parameters(
         "fosina",
         "fosina_dxs",
         "dxs",
+        "asn"
     ]
 
     if interrogator in interrogator_list:
@@ -476,7 +477,7 @@ def load_das_data(
         if not os.path.exists(f):
             raise FileNotFoundError(f"File {f} not found")
 
-    if interrogator in ["optasense", "silixa", "onyx"]:
+    if interrogator in ["optasense", "silixa", "onyx"]: # TODO: REMOVE "silixa" and load properly
         with h5py.File(filename, "r") as fp:
             # Data matrix
             raw_data = fp["Acquisition/Raw[0]/RawData"]

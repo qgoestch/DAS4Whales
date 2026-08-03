@@ -201,14 +201,20 @@ def get_metadata_silixa(filepath: str) -> Dict[str, Any]:
         fp = TdmsFile.read(filepath)
         props = fp.properties
         group = fp["Measurement"]
-        acousticData = np.asarray([group[channel].data for channel in group])
-
+        
+        acousticData = [group[channel].data for channel in group] 
+        
         fs = props["SamplingFrequency[Hz]"]  # sampling rate in Hz
-        dx = props["SpatialResolution[m]"]  # channel spacing in m
-        ns = acousticData.shape[1]
+        dx = props["SpatialResolution[m]"] * props["Fibre Length Multiplier"]  # channel spacing in m
+        ns = len(acousticData[0]) # TODO find a way to load this from properties rather than having to load whole acoustic dataset
+        
         n = props["FibreIndex"]  # refractive index
         GL = props["GaugeLength"]  # gauge length in m
-        nx = acousticData.shape[0]  # number of channels
+        
+        # TODO using MeasureLength[m] may be faster if we can find a way to NOT load whole acoustic dataset
+        # nx = props["MeasureLength[m]"]/props[""]  # number of channels
+        nx = len(acousticData) # number of channles
+        
         scale_factor = (116 * fs * 10**-9) / (GL * 2**13)
 
         start_dist = props["StartPosition[m]"]
@@ -477,7 +483,7 @@ def load_das_data(
         if not os.path.exists(f):
             raise FileNotFoundError(f"File {f} not found")
 
-    if interrogator in ["optasense", "silixa", "onyx"]: # TODO: REMOVE "silixa" and load properly
+    if interrogator in ["optasense", "onyx"]:
         with h5py.File(filename, "r") as fp:
             # Data matrix
             raw_data = fp["Acquisition/Raw[0]/RawData"]
@@ -503,6 +509,14 @@ def load_das_data(
             # For future save
             file_begin_time_utc = datetime.utcfromtimestamp(raw_data_time[0] * 1e-6)
 
+    elif interrogator in ["silixa"]:
+        with TdmsFile.open(filename) as tdms:
+            group = tdms["Measurement"]
+            acousticData = np.asarray([group[channel].data for channel in group])
+            props = tdms.properties
+            file_begin_time_utc = datetime.utcfromtimestamp(props['GPSTimeStamp'])
+            # TODO: if GPSTimeStamp isn't populated or doesn't exist, read from CPUTimeStamp instead
+            
     elif interrogator in ["fosina", "fosina_dxs", "dxs"]:
         with h5py.File(filename, "r") as fp:
             # Data matrix

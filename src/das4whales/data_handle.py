@@ -477,11 +477,9 @@ def load_das_data(
     file_begin_time_utc : datetime.datetime
         The beginning time of the file, can be printed using file_begin_time_utc.strftime("%Y-%m-%d %H:%M:%S").
     """
-    if type(filename) != list:
-        filename = [filename]
-    for f in filename:
-        if not os.path.exists(f):
-            raise FileNotFoundError(f"File {f} not found")
+    
+    if not os.path.exists(filename):
+        raise FileNotFoundError(f"File {filename} not found")
 
     if interrogator in ["optasense", "onyx"]:
         with h5py.File(filename, "r") as fp:
@@ -509,13 +507,34 @@ def load_das_data(
             # For future save
             file_begin_time_utc = datetime.utcfromtimestamp(raw_data_time[0] * 1e-6)
 
-    elif interrogator in ["silixa"]:
-        with TdmsFile.open(filename) as tdms:
+    elif interrogator == "silixa":
+        with TdmsFile.read(filename) as tdms:
             group = tdms["Measurement"]
-            acousticData = np.asarray([group[channel].data for channel in group])
+            raw_data = np.asarray([group[channel].data for channel in group])
             props = tdms.properties
-            file_begin_time_utc = datetime.utcfromtimestamp(props['GPSTimeStamp'])
-            # TODO: if GPSTimeStamp isn't populated or doesn't exist, read from CPUTimeStamp instead
+
+            gps_timestamp = props.get("GPSTimeStamp")
+            cpu_timestamp = props.get("CPUTimeStamp")
+
+            # Prefer GPS time if present, valid, and plausible.
+            if (
+                gps_timestamp is not None
+                and not np.isnat(gps_timestamp)
+                and gps_timestamp >= np.datetime64("2010-01-01")
+            ):
+                file_timestamp = gps_timestamp
+            else:
+                file_timestamp = cpu_timestamp
+            
+            # Convert NumPy datetime64 to a normal, naive Python datetime.
+            # The rest of DAS4Whales uses naive UTC datetimes.
+            file_begin_time_utc = file_timestamp.astype("datetime64[us]").item()
+
+            trace = raw_data[
+                selected_channels[0] : selected_channels[1] : selected_channels[2], :
+            ].astype(np.float64)
+            trace = raw2strain(trace, metadata)
+            
             
     elif interrogator in ["fosina", "fosina_dxs", "dxs"]:
         with h5py.File(filename, "r") as fp:

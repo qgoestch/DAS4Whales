@@ -611,7 +611,7 @@ def load_das_data(
             scale = fp['header']['dataScale'][()]/fp['header']['sensitivities'][()]
             dtrace = raw_data[:, selected_channels[0] : selected_channels[1] : selected_channels[2]].astype(np.float64).T
             dtrace *= scale
-            trace2 = np.cumsum(dtrace, axis=1)*(1/metadata['fs'])
+            trace = np.cumsum(dtrace, axis=1)*(1/metadata['fs'])
             timestamp = fp['header']['time'][()]
             file_begin_time_utc = datetime.utcfromtimestamp(timestamp)
 

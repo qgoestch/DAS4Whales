@@ -261,7 +261,8 @@ def get_metadata_asn(filepath: str) -> Dict[str, Any]:
 
     fp = h5py.File(filepath, "r")
 
-    fs = 1 / fp["header"]["dt"][()]  # sampling rate in Hz
+    dt = fp["header"]["dt"][()]  # sampling interval in seconds
+    fs = 1 / dt  # sampling rate in Hz
     dx = (
         fp["cableSpec"]["sensorDistances"][()][1]
         - fp["cableSpec"]["sensorDistances"][()][0]
@@ -274,13 +275,11 @@ def get_metadata_asn(filepath: str) -> Dict[str, Any]:
     n = fp["cableSpec"].get(
         "refractiveIndex", fp["cableSpec"].get("refractiveIndexes")
     )[()]  # refractive index of the fiber
-    data_scale = fp["header"]["dataScale"][
-        ()
-    ]  # Scaling factor to multiply in order to express data in unit.
+    data_scale = fp["header"]["dataScale"][()]  # Scaling factor to multiply in order to express data in unit.
     sensitivity = fp["header"]["sensitivities"][()]
-    scale_factor = sensitivity  / data_scale
-    print(scale_factor)
-
+    # scale_factor = data_scale / sensitivity  # TODO: determine correct value for scale factor
+    scale_factor = sensitivity # value to convert DAS data from strain rate to strain
+    
     start_dist = fp["demodSpec"]["roiStart"][()] * fp["header"]["dx"][()]
     end_dist = fp["demodSpec"]["roiEnd"][()] * fp["header"]["dx"][()] + dx
 
@@ -534,8 +533,7 @@ def load_das_data(
                 selected_channels[0] : selected_channels[1] : selected_channels[2], :
             ].astype(np.float64)
             trace = raw2strain(trace, metadata)
-            
-            
+                   
     elif interrogator in ["fosina", "fosina_dxs", "dxs"]:
         with h5py.File(filename, "r") as fp:
             # Data matrix
@@ -576,31 +574,46 @@ def load_das_data(
                 file_begin_time_utc = datetime(2000, 1, 1, 1, 10, 10)
 
     elif interrogator == "asn":
-        if not SIMPLEDAS_AVAILABLE:
-            raise ImportError(
-                "simpledas package is required to load ASN interrogator data. Please install it using: pip install git+https://github.com/qgoestch/simpleDAS"
+        if SIMPLEDAS_AVAILABLE:
+ 
+            if type(filename) != list:
+                filename = [filename]
+            
+            sensitivity = metadata["scale_factor"]
+                
+            dfdas = sd.load_DAS_files(
+                filename,
+                chIndex=None,
+                samples=None,
+                sensitivitySelect=-3,
+                userSensitivity={
+                    "sensitivity": sensitivity,
+                    "sensitivityUnit": "rad/(m*strain)",
+                },
+                integrate=True,
+                unwr=True,
             )
 
-        dfdas = sd.load_DAS_files(
-            filename,
-            chIndex=None,
-            samples=None,
-            sensitivitySelect=-3,
-            userSensitivity={
-                "sensitivity": metadata["scale_factor"],
-                "sensitivityUnit": "rad/(m*strain)",
-            },
-            integrate=True,
-            unwr=True,
-        )
+            trace = dfdas.values.T
+            trace = trace[
+                selected_channels[0] : selected_channels[1] : selected_channels[2], :
+            ].astype(np.float64)
 
-        trace = dfdas.values.T
-        trace = trace[
-            selected_channels[0] : selected_channels[1] : selected_channels[2], :
-        ].astype(np.float64)
-
-        # For future save
-        file_begin_time_utc = dfdas.meta["time"]
+            # For future save
+            file_begin_time_utc = dfdas.meta["time"]
+        
+        else:
+            print(
+                "simpledas package is recommended to load ASN interrogator data. Please install it using: pip install git+https://github.com/qgoestch/simpleDAS"
+            )
+            fp = h5py.File(filename, "r")
+            raw_data = fp['data']
+            scale = fp['header']['dataScale'][()]/fp['header']['sensitivities'][()]
+            dtrace = raw_data[:, selected_channels[0] : selected_channels[1] : selected_channels[2]].astype(np.float64).T
+            dtrace *= scale
+            trace2 = np.cumsum(dtrace, axis=1)*(1/metadata['fs'])
+            timestamp = fp['header']['time'][()]
+            file_begin_time_utc = datetime.utcfromtimestamp(timestamp)
 
     else:
         raise ValueError("Interrogator name incorrect or not supported")

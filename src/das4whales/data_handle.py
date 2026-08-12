@@ -88,8 +88,8 @@ def get_acquisition_parameters(
         elif interrogator == "silixa":
             metadata = get_metadata_silixa(filepath)
 
-        elif interrogator == "mars":
-            metadata = get_metadata_mars(filepath)
+        # elif interrogator == "mars":  # TODO
+        #     metadata = get_metadata_mars(filepath)
 
         elif interrogator == "asn":
             metadata = get_metadata_asn(filepath)
@@ -196,29 +196,30 @@ def get_metadata_silixa(filepath: str) -> Dict[str, Any]:
 
     """
 
-    # Make sure the file exists
     if os.path.exists(filepath):
-        fp = TdmsFile.read(filepath)
-        props = fp.properties
-        group = fp["Measurement"]
-        
-        acousticData = [group[channel].data for channel in group] 
-        
-        fs = props["SamplingFrequency[Hz]"]  # sampling rate in Hz
-        dx = props["SpatialResolution[m]"] * props["Fibre Length Multiplier"]  # channel spacing in m
-        ns = len(acousticData[0]) # TODO find a way to load this from properties rather than having to load whole acoustic dataset
-        
-        n = props["FibreIndex"]  # refractive index
-        GL = props["GaugeLength"]  # gauge length in m
-        
-        # TODO using MeasureLength[m] may be faster if we can find a way to NOT load whole acoustic dataset
-        # nx = props["MeasureLength[m]"]/props[""]  # number of channels
-        nx = len(acousticData) # number of channles
-        
-        scale_factor = (116 * fs * 10**-9) / (GL * 2**13)
+        with TdmsFile.read_metadata(filepath) as tdms:
+            props = tdms.properties
+            group = tdms["Measurement"]
 
-        start_dist = props["StartPosition[m]"]
-        end_dist = start_dist + nx * dx
+            channels = group.channels()
+
+            if not channels:
+                raise ValueError(f"No channels found in Measurement group: {filepath}")
+
+            fs = props["SamplingFrequency[Hz]"]
+            dx = props["SpatialResolution[m]"] * props["Fibre Length Multiplier"]
+
+            # Uses channel metadata, not the waveform data.
+            nx = len(channels)
+            ns = len(channels[0])
+
+            n = props["FibreIndex"]
+            GL = props["GaugeLength"]
+
+            scale_factor = (116 * fs * 1e-9) / (GL * 2**13)
+
+            start_dist = props["StartPosition[m]"]
+            end_dist = start_dist + nx * dx
 
         meta_data = {
             "fs": fs,

@@ -7,8 +7,6 @@ Authors: Léa Bouffaut, Quentin Goestchel
 Date: 2023-2024-2025
 """
 
-from __future__ import annotations
-
 import cv2
 import deprecation
 import librosa
@@ -133,7 +131,7 @@ def get_spectrogram(
     return p, tt, ff
 
 
-def normalize_std(trace):
+def normalize_std(trace: np.ndarray) -> np.ndarray:
     """
     Normalize the input trace by its standard deviation.
 
@@ -151,7 +149,7 @@ def normalize_std(trace):
     return trace / np.std(trace, axis=1, keepdims=True)
 
 
-def normalize_median(trace):
+def normalize_median(trace: np.ndarray) -> np.ndarray:
     """
     Normalize the input trace by its median.
 
@@ -178,7 +176,7 @@ def hybrid_filter_design(
     selected_channels: list[int],
     dx: float,
     fs: float,
-    fk_params: dict,
+    fk_params: dict[str, float],
     inf_wspeed: bool = False,
     taper: str = "gaussian",
     display_filter: bool = False,
@@ -205,6 +203,8 @@ def hybrid_filter_design(
         - 'fmax': maximum frequency for passband (Hz)
         - 'c_min': minimum phase speed for passband (m/s) [ignored if infinite_wave_speed=True]
         - 'c_max': maximum phase speed for passband (m/s) [ignored if infinite_wave_speed=True]
+        - 'df_taper': frequency transition width (Hz), default 4
+        - 'speed_taper': relative speed transition width, default 0.05
     inf_wspeed : bool, optional
         If True, filter passes all wavenumbers in the frequency band (no speed constraints).
         If False (default), constrains pass band to speeds between c_min and c_max.
@@ -228,7 +228,6 @@ def hybrid_filter_design(
     See Also
     --------
     fk_filter_filt : Apply the f-k filter to DAS data
-    fk_filter_sparsefilt : Apply the f-k filter using sparse matrix operations
     """
     # Validate taper parameter
     if taper not in ("gaussian", "sine"):
@@ -238,7 +237,10 @@ def hybrid_filter_design(
     nnx, nns = trace_shape
     fmin = fk_params["fmin"]
     fmax = fk_params["fmax"]
-    if not inf_wspeed:
+    if inf_wspeed:
+        c_min = fk_params.get("c_min", np.inf)
+        c_max = fk_params.get("c_max", np.inf)
+    else:
         c_min = fk_params["c_min"]
         c_max = fk_params["c_max"]
 
@@ -250,57 +252,81 @@ def hybrid_filter_design(
     fmin_idx = np.argmax(freq >= fmin)
     fmax_idx = np.argmax(freq >= fmax)
 
-    # Initiate filter matrix
-    fk_filter_matrix = np.zeros((len(knum), len(freq)))
+    # Sine tapering from older version of the code, kept for reference
+    if taper == "sine":
+        # Build frequency transitions around the passband.
+        df_taper = fk_params.get("df_taper", 4.0)
+        speed_taper = fk_params.get("speed_taper", 0.1)
+        if df_taper <= 0 or speed_taper < 0 or speed_taper >= 1:
+            raise ValueError(
+                "df_taper must be positive and speed_taper must be in [0, 1)"
+            )
 
-    # Going through frequencies between the considered range
-    if inf_wspeed:
-        # Pass all wavenumbers in the frequency band
-        for i in range(fmin_idx, fmax_idx):
-            fk_filter_matrix[:, i] = 1.0
+        fpmin = fmin - df_taper
+        fpmax = fmax + df_taper
+        if fpmin < 0:
+            raise ValueError("df_taper must define valid frequency transitions")
+
+        fk_filter_matrix = np.zeros((len(knum), len(freq)))
+        rising_mask = (freq >= fpmin) & (freq <= fmin)
+        falling_mask = (freq >= fmax) & (freq <= fpmax)
+        frequency_response = np.zeros_like(freq)
+        frequency_response[rising_mask] = np.sin(
+            0.5 * np.pi * (freq[rising_mask] - fpmin) / df_taper
+        )
+        frequency_response[(freq >= fmin) & (freq <= fmax)] = 1
+        frequency_response[falling_mask] = np.cos(
+            0.5 * np.pi * (freq[falling_mask] - fmax) / df_taper
+        )
+        fk_filter_matrix = np.tile(frequency_response, (len(knum), 1))
+
+        # Apply speed transitions inferred around the passband limits.
+        for i in range(np.argmax(freq >= fpmin), np.argmax(freq >= fpmax)):
+            if inf_wspeed:
+                filter_col = (knum > 0) & (knum < freq[i] / c_min)
+            else:
+                cs_min = c_min * (1 - speed_taper)
+                cs_max = c_max * (1 + speed_taper)
+                kp_min = freq[i] / c_max
+                kp_max = freq[i] / c_min
+                ks_min = freq[i] / cs_max
+                ks_max = freq[i] / cs_min
+                filter_col = np.zeros_like(knum)
+                filter_col[(knum > kp_min) & (knum < kp_max)] = 1
+                lower_mask = (knum >= ks_min) & (knum <= kp_min)
+                upper_mask = (knum >= kp_max) & (knum <= ks_max)
+                filter_col[lower_mask] = np.sin(
+                    0.5 * np.pi * (knum[lower_mask] - ks_min) / (kp_min - ks_min)
+                )
+                filter_col[upper_mask] = np.sin(
+                    0.5 * np.pi * (ks_max - knum[upper_mask]) / (ks_max - kp_max)
+                )
+            fk_filter_matrix[:, i] *= filter_col
+
+        fk_filter_matrix += np.fliplr(fk_filter_matrix)
+        fk_filter_matrix += np.flipud(fk_filter_matrix)
+    # Gaussian tapering for smooth transitions
     else:
-        # Filter waves by phase speed constraints
+        # Initiate the hard-edged filter before applying Gaussian smoothing.
+        fk_filter_matrix = np.zeros((len(knum), len(freq)))
         for i in range(fmin_idx, fmax_idx):
-            # Initiating filter column to zeros
             filter_col = np.zeros_like(knum)
-
-            # Filter bounds from c_min to c_max
-            kp_min = freq[i] / c_max
-            kp_max = freq[i] / c_min
-
-            # Passband: positive frequencies (kp_min is positive)
-            filter_col[(knum > kp_min) & (knum < kp_max)] = 1
-
-            # Fill the filter matrix
+            if inf_wspeed:
+                filter_col[(knum < freq[i] / c_min) & (knum > 0)] = 1
+            else:
+                kp_min = freq[i] / c_max
+                kp_max = freq[i] / c_min
+                filter_col[(knum > kp_min) & (knum < kp_max)] = 1
             fk_filter_matrix[:, i] = filter_col
 
-    # Apply taper to smooth transitions
-    sub_matrix = fk_filter_matrix[
-        len(knum) // 2 : len(knum), len(freq) // 2 : len(freq)
-    ]
-    sub_matrix = sub_matrix.astype(np.float32)
-
-    if taper == "gaussian":
         # Apply Gaussian blur for smooth transitions
+        sub_matrix = fk_filter_matrix[
+            len(knum) // 2 : len(knum), len(freq) // 2 : len(freq)
+        ].astype(np.float32)
         tapered_sub_matrix = cv2.GaussianBlur(sub_matrix, (0, 0), 40)
-    elif taper == "sine":
-        # Apply sine taper window
-        n_k = sub_matrix.shape[0]
-        n_f = sub_matrix.shape[1]
-        sine_taper_k = np.sin(np.linspace(0, np.pi / 2, n_k)) ** 2
-        sine_taper_f = np.sin(np.linspace(0, np.pi / 2, n_f)) ** 2
-        tapered_sub_matrix = (
-            sub_matrix * sine_taper_k[:, np.newaxis] * sine_taper_f[np.newaxis, :]
-        )
-
-    # Replace the submatrix in the original matrix
-    fk_filter_matrix[len(knum) // 2 : len(knum), len(freq) // 2 : len(freq)] = (
-        tapered_sub_matrix
-    )
-
-    # Symmetrize the filter
-    fk_filter_matrix += np.fliplr(fk_filter_matrix)
-    fk_filter_matrix += np.flipud(fk_filter_matrix)
+        fk_filter_matrix[len(knum) // 2 :, len(freq) // 2 :] = tapered_sub_matrix
+        fk_filter_matrix += np.fliplr(fk_filter_matrix)
+        fk_filter_matrix += np.flipud(fk_filter_matrix)
 
     # Filter display, optional
     if display_filter:
@@ -369,7 +395,7 @@ def hybrid_filter_design(
     return sparse.COO.from_numpy(fk_filter_matrix)
 
 
-def taper_data(trace):
+def taper_data(trace: np.ndarray) -> np.ndarray:
     """
     Apply a Tukey window to each line (time series) of the input matrix.
 
@@ -389,7 +415,7 @@ def taper_data(trace):
     return trace
 
 
-def taper_data2d(data, taper_type="tukey"):
+def taper_data2d(data: np.ndarray, taper_type: str = "tukey") -> np.ndarray:
     """
     Applies tapering (windowing) to the data in both space (channels) and time (samples) domains.
 
@@ -434,81 +460,57 @@ def taper_data2d(data, taper_type="tukey"):
     return tapered_data
 
 
-def fk_filter_filt(trace, fk_filter_matrix, tapering=False):
-    """
-    Applies a pre-calculated f-k filter to DAS strain data.
+def fk_filter_filt(
+    trace: np.ndarray,
+    fk_filter_matrix: np.ndarray | sparse.COO,
+    tapering: bool = False,
+    parallel: int | None = None,
+) -> np.ndarray:
+    """Apply a pre-calculated f-k filter to DAS strain data.
 
     Parameters
     ----------
     trace : np.ndarray
-        A [channel x time sample] nparray containing the strain data in the spatio-temporal domain.
-    fk_filter_matrix : np.ndarray
-        A [channel x time sample] nparray containing the f-k-filter.
+        DAS data with shape ``[channels, samples]``.
+    fk_filter_matrix : np.ndarray or sparse.COO
+        Pre-calculated f-k filter with the same shape as ``trace``.
     tapering : bool, optional
-        Flag indicating whether to apply tapering to the data. Default is False.
+        Whether to apply ``taper_data`` before filtering. Default is False.
+    parallel : int or None, optional
+        Number of workers for SciPy FFT operations. ``None`` uses NumPy's
+        serial FFT implementation. Use ``-1`` to use all available workers.
 
     Returns
     -------
     np.ndarray
-        A [channel x time sample] nparray containing the f-k-filtered strain data in the spatio-temporal domain.
-    """
-
-    if tapering:
-        trace = taper_data(trace)
-
-    # Calculate the frequency-wavenumber spectrum
-    fk_trace = np.fft.fftshift(np.fft.fft2(trace))
-
-    # Apply the filter
-    fk_filtered_trace = fk_trace * fk_filter_matrix
-
-    if fk_filtered_trace.ndim == 2 and isinstance(fk_filtered_trace, sparse.COO):
-        # Convert the sparse matrix to a dense format
-        fk_filtered_trace = fk_filtered_trace.todense()
-    # Back to the t-x domain
-    trace = np.fft.ifft2(np.fft.ifftshift(fk_filtered_trace))
-
-    return trace.real
-
-
-# TODO: transfer function from private branche using parallel fft
-def fk_filter_sparsefilt(trace, fk_filter_matrix, tapering=False):
-    """
-    Applies a pre-calculated f-k filter to DAS strain data
-
-    Parameters
-    ----------
-    trace : np.ndarray
-        A [channel x time sample] nparray containing the strain data in the spatio-temporal domain.
-    fk_filter_matrix : np.ndarray
-        A [channel x time sample] nparray containing the f-k-filter.
-
-    Returns
-    -------
-    np.ndarray
-        A [channel x time sample] nparray containing the f-k-filtered strain data in the spatio-temporal domain.
+        Filtered DAS data with the same shape as ``trace``.
     """
     if tapering:
         trace = taper_data(trace)
 
-    trace = np.asarray(trace, dtype=np.complex64)
+    if parallel is not None:
+        trace = np.asarray(trace, dtype=np.complex64)
+        fk_trace = sfft.fft2(trace, workers=parallel)
+    else:
+        fk_trace = np.fft.fft2(trace)
 
-    # Calculate the frequency-wavenumber spectrum
-    fk_trace = np.fft.fftshift(sfft.fft2(trace, workers=-1))
-
-    # Apply the filter
-    fk_filtered_trace = fk_trace * fk_filter_matrix
-
+    fk_filtered_trace = np.fft.fftshift(fk_trace) * fk_filter_matrix
     if isinstance(fk_filtered_trace, sparse.COO):
-        # Convert the sparse matrix to a dense format
         fk_filtered_trace = fk_filtered_trace.todense()
-    # Back to the t-x domain
-    trace = sfft.ifft2(np.fft.ifftshift(fk_filtered_trace), workers=-1)
 
-    return trace.real
+    if parallel is not None:
+        filtered_trace = sfft.ifft2(
+            np.fft.ifftshift(fk_filtered_trace), workers=parallel
+        )
+    else:
+        filtered_trace = np.fft.ifft2(np.fft.ifftshift(fk_filtered_trace))
+
+    return filtered_trace.real
 
 
-def butterworth_filter(filterspec, fs):
+def butterworth_filter(
+    filterspec: tuple[int, float | list[float], str], fs: float
+) -> np.ndarray:
     """
     Designs and applies a Butterworth filter.
 
@@ -549,7 +551,7 @@ def butterworth_filter(filterspec, fs):
     return filter_sos
 
 
-def instant_freq(channel, fs):
+def instant_freq(channel: np.ndarray, fs: float) -> np.ndarray:
     """Compute the instantaneous frequency
 
     Parameters
@@ -578,7 +580,7 @@ def instant_freq(channel, fs):
     return fi  # , ffi, t, fm
 
 
-def bp_filt(data, fs, fmin, fmax):
+def bp_filt(data: np.ndarray, fs: float, fmin: float, fmax: float) -> np.ndarray:
     """bp_filt - perform bandpass filtering on an array of DAS data
 
     Parameters
@@ -602,7 +604,16 @@ def bp_filt(data, fs, fmin, fmax):
     return tr_filt
 
 
-def fk_filt(data, tint, fs, xint, dx, c_min, c_max, display_filter=False):
+def fk_filt(
+    data: np.ndarray,
+    tint: float,
+    fs: float,
+    xint: float,
+    dx: float,
+    c_min: float,
+    c_max: float,
+    display_filter: bool = False,
+) -> np.ndarray:
     """fk_filt - perform fk filtering on an array of DAS data
 
     Parameters
@@ -733,7 +744,7 @@ def fk_filt(data, tint, fs, xint, dx, c_min, c_max, display_filter=False):
     return data_g.real
 
 
-def snr_tr_array(trace):
+def snr_tr_array(trace: np.ndarray) -> np.ndarray:
     """Calculate the 2D Signal-to-Noise Ratio (SNR) array for a given input trace.
 
     This function computes the SNR for each element in the input 2D trace array. The SNR
@@ -756,7 +767,7 @@ def snr_tr_array(trace):
     )
 
 
-def calc_snr_median(trace):
+def calc_snr_median(trace: np.ndarray) -> np.ndarray:
     """Calculate the Signal-to-Noise Ratio (SNR) for a given input trace.
 
     This function computes the SNR for the input trace. The SNR is calculated as the ratio of the square of the envelope of the trace to the square of the median of the trace.
@@ -776,11 +787,11 @@ def calc_snr_median(trace):
     return 10 * np.log10(envelope**2 / np.median(envelope, axis=1, keepdims=True) ** 2)
 
 
-def moving_average(signal, window_size):
+def moving_average(signal: np.ndarray, window_size: int) -> np.ndarray:
     return np.convolve(signal, np.ones(window_size) / window_size, mode="same")
 
 
-def moving_average_matrix(matrix, window_size):
+def moving_average_matrix(matrix: np.ndarray, window_size: int) -> np.ndarray:
     return np.array(
         [moving_average(matrix[i, :], window_size) for i in range(matrix.shape[0])]
     )

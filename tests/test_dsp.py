@@ -2,8 +2,7 @@ import numpy as np
 import pytest
 
 from das4whales.dsp import (
-    # fk_filter_filt,
-    # fk_filter_sparsefilt,
+    fk_filter_filt,
     butterworth_filter,
     # bp_filt,
     fk_filt,
@@ -145,19 +144,17 @@ def test_taper_data():
     assert np.allclose(tapered_trace, np.array([[0, 2, 3, 4, 0], [0, 2, 3, 4, 0]]))
 
 
-# def test_fk_filter_filt():
-#     trace = np.array([1, 2, 3, 4, 5], dtype=float)
-#     trace = np.tile(trace, 5)
-#     print(trace)
-#     fk_filter_matrix = np.fft.fftshift(np.fft.fft2(np.eye(5)))
-#     filtered_trace = fk_filter_filt(trace, fk_filter_matrix)
-#     assert np.allclose(filtered_trace, trace)
+def test_fk_filter_filt_serial_and_parallel():
+    rng = np.random.default_rng(0)
+    trace = rng.standard_normal((8, 16))
+    fk_filter_matrix = rng.random((8, 16))
 
-# def test_fk_filter_sparsefilt():
-#     trace = np.array([1, 2, 3, 4, 5])
-#     fk_filter_matrix = np.eye(5)
-#     filtered_trace = fk_filter_sparsefilt(trace, fk_filter_matrix)
-#     assert np.allclose(filtered_trace, trace)
+    serial = fk_filter_filt(trace, fk_filter_matrix)
+    parallel = fk_filter_filt(trace, fk_filter_matrix, parallel=-1)
+
+    assert serial.shape == trace.shape
+    assert parallel.shape == trace.shape
+    assert np.allclose(serial, parallel, rtol=1e-5, atol=1e-6)
 
 
 def test_butterworth_filter():

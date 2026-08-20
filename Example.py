@@ -80,11 +80,13 @@ def main(url: str):
         dx,
         fs,
         fk_params=fk_params,
-        display_filter=True
+        display_filter=True,
+        inf_wspeed=False,
+        taper="gaussian",
     )
 
     # Apply the f-k filter to the data
-    trf_fk = dw.dsp.fk_filter_filt(trf, fk_filter)
+    trf_fk = dw.dsp.fk_filter_filt(trf, fk_filter, parallel=6)
 
     # Spatio-temporal plot high-pass filtered data
     dw.plot.plot_tx(

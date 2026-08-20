@@ -7,17 +7,17 @@ Authors: Léa Bouffaut, Quentin Goestchel
 Date: 2023-2024
 """
 
-from __future__ import annotations
+import matplotlib
 
-from datetime import datetime
-
-import matplotlib.pyplot as plt
-import matplotlib.ticker as tkr
+matplotlib.use("QtAgg")
 import numpy as np
 import scipy.signal as sp
+import matplotlib.pyplot as plt
+import matplotlib.ticker as tkr
 
 import das4whales as dw
 from das4whales.dsp import get_fx, instant_freq
+from datetime import datetime
 
 
 def plot_rawdata(

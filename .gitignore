@@ -76,3 +76,6 @@ evaluation/
 
 # Development notebooks
 devnotebooks/
+
+# Scripts for development (temporary)
+scripts/dev/

@@ -78,7 +78,7 @@ def get_acquisition_parameters(
         "fosina",
         "fosina_dxs",
         "dxs",
-        "asn"
+        "asn",
     ]
 
     if interrogator in interrogator_list:
@@ -276,11 +276,13 @@ def get_metadata_asn(filepath: str) -> Dict[str, Any]:
     n = fp["cableSpec"].get(
         "refractiveIndex", fp["cableSpec"].get("refractiveIndexes")
     )[()]  # refractive index of the fiber
-    data_scale = fp["header"]["dataScale"][()]  # Scaling factor to multiply in order to express data in unit.
+    data_scale = fp["header"]["dataScale"][
+        ()
+    ]  # Scaling factor to multiply in order to express data in unit.
     sensitivity = fp["header"]["sensitivities"][()]
     # scale_factor = data_scale / sensitivity  # TODO: determine correct value for scale factor
-    scale_factor = sensitivity # value to convert DAS data from strain rate to strain
-    
+    scale_factor = sensitivity  # value to convert DAS data from strain rate to strain
+
     start_dist = fp["demodSpec"]["roiStart"][()] * fp["header"]["dx"][()]
     end_dist = fp["demodSpec"]["roiEnd"][()] * fp["header"]["dx"][()] + dx
 
@@ -477,7 +479,7 @@ def load_das_data(
     file_begin_time_utc : datetime.datetime
         The beginning time of the file, can be printed using file_begin_time_utc.strftime("%Y-%m-%d %H:%M:%S").
     """
-    
+
     if not os.path.exists(filename):
         raise FileNotFoundError(f"File {filename} not found")
 
@@ -525,7 +527,7 @@ def load_das_data(
                 file_timestamp = gps_timestamp
             else:
                 file_timestamp = cpu_timestamp
-            
+
             # Convert NumPy datetime64 to a normal, naive Python datetime.
             # The rest of DAS4Whales uses naive UTC datetimes.
             file_begin_time_utc = file_timestamp.astype("datetime64[us]").item()
@@ -534,7 +536,7 @@ def load_das_data(
                 selected_channels[0] : selected_channels[1] : selected_channels[2], :
             ].astype(np.float64)
             trace = raw2strain(trace, metadata)
-                   
+
     elif interrogator in ["fosina", "fosina_dxs", "dxs"]:
         with h5py.File(filename, "r") as fp:
             # Data matrix
@@ -576,12 +578,11 @@ def load_das_data(
 
     elif interrogator == "asn":
         if SIMPLEDAS_AVAILABLE:
- 
             if type(filename) != list:
                 filename = [filename]
-            
+
             sensitivity = metadata["scale_factor"]
-                
+
             dfdas = sd.load_DAS_files(
                 filename,
                 chIndex=None,
@@ -602,18 +603,25 @@ def load_das_data(
 
             # For future save
             file_begin_time_utc = dfdas.meta["time"]
-        
+
         else:
             print(
                 "simpledas package is recommended to load ASN interrogator data. Please install it using: pip install git+https://github.com/qgoestch/simpleDAS"
             )
             fp = h5py.File(filename, "r")
-            raw_data = fp['data']
-            scale = fp['header']['dataScale'][()]/fp['header']['sensitivities'][()]
-            dtrace = raw_data[:, selected_channels[0] : selected_channels[1] : selected_channels[2]].astype(np.float64).T
+            raw_data = fp["data"]
+            scale = fp["header"]["dataScale"][()] / fp["header"]["sensitivities"][()]
+            dtrace = (
+                raw_data[
+                    :,
+                    selected_channels[0] : selected_channels[1] : selected_channels[2],
+                ]
+                .astype(np.float64)
+                .T
+            )
             dtrace *= scale
-            trace = np.cumsum(dtrace, axis=1)*(1/metadata['fs'])
-            timestamp = fp['header']['time'][()]
+            trace = np.cumsum(dtrace, axis=1) * (1 / metadata["fs"])
+            timestamp = fp["header"]["time"][()]
             file_begin_time_utc = datetime.utcfromtimestamp(timestamp)
 
     else:

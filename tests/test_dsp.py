@@ -7,13 +7,9 @@ from das4whales.dsp import (
     butterworth_filter,
     # bp_filt,
     fk_filt,
-    fk_filter_design,
     get_fx,
     get_spectrogram,
     hybrid_filter_design,
-    hybrid_gs_filter_design,
-    hybrid_ninf_filter_design,
-    hybrid_ninf_gs_filter_design,
     instant_freq,
     resample,
     snr_tr_array,
@@ -90,87 +86,57 @@ def test_get_spectrogram():
     assert Sxx2.shape == (len(f2), len(t2))
 
 
-def test_fk_filter_design():
-    trace_shape = (10, 10)
-    selected_channels = [0, 1, 2]
-    dx = 1
-    fs = 100
-    cs_min = 1400
-    cp_min = 1450
-    cp_max = 3400
-    cs_max = 3500
-    fk_filter_matrix = fk_filter_design(
-        trace_shape, selected_channels, dx, fs, cs_min, cp_min, cp_max, cs_max
-    )
-    assert fk_filter_matrix.shape == (10, 10)
-
-
 def test_hybrid_filter_design():
     trace_shape = (10, 10)
     selected_channels = [0, 1, 2]
     dx = 1
     fs = 100
-    cs_min = 1400
-    cp_min = 1450
-    fmin = 15
-    fmax = 25
+    fk_params = {"c_min": 1400, "c_max": 3500, "fmin": 15, "fmax": 25}
     hybrid_filter_matrix = hybrid_filter_design(
-        trace_shape, selected_channels, dx, fs, cs_min, cp_min, fmin, fmax
+        trace_shape, selected_channels, dx, fs, fk_params
     )
     assert hybrid_filter_matrix.shape == (10, 10)
 
 
-def test_hybrid_ninf_filter_design():
+def test_hybrid_filter_design_infinite_wave_speed():
     trace_shape = (10, 10)
     selected_channels = [0, 1, 2]
     dx = 1
     fs = 100
-    cs_min = 1400
-    cp_min = 1450
-    cp_max = 3400
-    cs_max = 3500
-    fmin = 15
-    fmax = 25
-    hybrid_ninf_filter_matrix = hybrid_ninf_filter_design(
+    fk_params = {"fmin": 15, "fmax": 25}
+    hybrid_filter_matrix = hybrid_filter_design(
         trace_shape,
         selected_channels,
         dx,
         fs,
-        cs_min,
-        cp_min,
-        cp_max,
-        cs_max,
-        fmin,
-        fmax,
+        fk_params,
+        inf_wspeed=True,
     )
-    assert hybrid_ninf_filter_matrix.shape == (10, 10)
+    assert hybrid_filter_matrix.shape == (10, 10)
 
 
-def test_hybrid_gs_filter_design():
-    trace_shape = (10, 10)
-    selected_channels = [0, 1, 2]
-    dx = 1
-    fs = 100
-    cs_min = 1400
-    cp_min = 1450
-    fmin = 15
-    fmax = 25
-    hybrid_gs_filter_matrix = hybrid_gs_filter_design(
-        trace_shape, selected_channels, dx, fs, cs_min, cp_min, fmin, fmax
-    )
-    assert hybrid_gs_filter_matrix.shape == (10, 10)
-
-
-def test_hybrid_ninf_gs_filter_design():
+def test_hybrid_filter_design_sine_taper():
     trace_shape = (10, 10)
     selected_channels = [0, 1, 2]
     dx = 1
     fs = 100
     fk_params = {"c_min": 1400, "c_max": 3500, "fmin": 15, "fmax": 25}
-    hybrid_ninf_gs_filter_matrix = hybrid_ninf_gs_filter_design(
-        trace_shape, selected_channels, dx, fs, fk_params
+    hybrid_filter_matrix = hybrid_filter_design(
+        trace_shape, selected_channels, dx, fs, fk_params, taper="sine"
     )
-    assert hybrid_ninf_gs_filter_matrix.shape == (10, 10)
+    assert hybrid_filter_matrix.shape == (10, 10)
+
+
+def test_hybrid_filter_design_rejects_unknown_taper():
+    trace_shape = (10, 10)
+    selected_channels = [0, 1, 2]
+    dx = 1
+    fs = 100
+    fk_params = {"c_min": 1400, "c_max": 3500, "fmin": 15, "fmax": 25}
+    with pytest.raises(ValueError, match="taper"):
+        hybrid_filter_design(
+            trace_shape, selected_channels, dx, fs, fk_params, taper="cosine"
+        )
 
 
 def test_taper_data():

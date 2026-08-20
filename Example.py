@@ -65,17 +65,22 @@ def main(url: str):
     # apply the high-pass filter
     trf = sp.sosfiltfilt(sos_hpfilt, tr, axis=1)
 
+    fk_params = {
+        "fmin": 10,
+        "fmax": 30,
+        "c_min": 1400,
+        "c_max": 3500,
+    }
+
     # FK filter
     # Create the f-k filter
-    fk_filter = dw.dsp.fk_filter_design(
+    fk_filter = dw.dsp.hybrid_filter_design(
         (trf.shape[0], trf.shape[1]),
         selected_channels,
         dx,
         fs,
-        cs_min=1400,
-        cp_min=1480,
-        cp_max=3400,
-        cs_max=3500,
+        fk_params=fk_params,
+        display_filter=True
     )
 
     # Apply the f-k filter to the data

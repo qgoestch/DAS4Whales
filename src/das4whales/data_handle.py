@@ -53,7 +53,7 @@ def get_acquisition_parameters(
     filepath : str
         The file path to the data file.
     interrogator : str, optional
-        The interrogator type, one of {'optasense', 'silixa', 'mars', 'alcatel', 'onyx', }.
+        The interrogator type, one of {'optasense', 'silixa', 'mars', 'alcatel', 'onyx', 'asn'}.
         Defaults to 'optasense'.
 
     Returns
@@ -78,6 +78,7 @@ def get_acquisition_parameters(
         "fosina",
         "fosina_dxs",
         "dxs",
+        "asn"
     ]
 
     if interrogator in interrogator_list:
@@ -87,8 +88,8 @@ def get_acquisition_parameters(
         elif interrogator == "silixa":
             metadata = get_metadata_silixa(filepath)
 
-        elif interrogator == "mars":
-            metadata = get_metadata_mars(filepath)
+        # elif interrogator == "mars":  # TODO
+        #     metadata = get_metadata_mars(filepath)
 
         elif interrogator == "asn":
             metadata = get_metadata_asn(filepath)
@@ -195,23 +196,30 @@ def get_metadata_silixa(filepath: str) -> Dict[str, Any]:
 
     """
 
-    # Make sure the file exists
     if os.path.exists(filepath):
-        fp = TdmsFile.read(filepath)
-        props = fp.properties
-        group = fp["Measurement"]
-        acousticData = np.asarray([group[channel].data for channel in group])
+        with TdmsFile.read_metadata(filepath) as tdms:
+            props = tdms.properties
+            group = tdms["Measurement"]
 
-        fs = props["SamplingFrequency[Hz]"]  # sampling rate in Hz
-        dx = props["SpatialResolution[m]"]  # channel spacing in m
-        ns = acousticData.shape[1]
-        n = props["FibreIndex"]  # refractive index
-        GL = props["GaugeLength"]  # gauge length in m
-        nx = acousticData.shape[0]  # number of channels
-        scale_factor = (116 * fs * 10**-9) / (GL * 2**13)
+            channels = group.channels()
 
-        start_dist = props["StartPosition[m]"]
-        end_dist = start_dist + nx * dx
+            if not channels:
+                raise ValueError(f"No channels found in Measurement group: {filepath}")
+
+            fs = props["SamplingFrequency[Hz]"]
+            dx = props["SpatialResolution[m]"] * props["Fibre Length Multiplier"]
+
+            # Uses channel metadata, not the waveform data.
+            nx = len(channels)
+            ns = len(channels[0])
+
+            n = props["FibreIndex"]
+            GL = props["GaugeLength"]
+
+            scale_factor = (116 * fs * 1e-9) / (GL * 2**13)
+
+            start_dist = props["StartPosition[m]"]
+            end_dist = start_dist + nx * dx
 
         meta_data = {
             "fs": fs,
@@ -254,7 +262,8 @@ def get_metadata_asn(filepath: str) -> Dict[str, Any]:
 
     fp = h5py.File(filepath, "r")
 
-    fs = 1 / fp["header"]["dt"][()]  # sampling rate in Hz
+    dt = fp["header"]["dt"][()]  # sampling interval in seconds
+    fs = 1 / dt  # sampling rate in Hz
     dx = (
         fp["cableSpec"]["sensorDistances"][()][1]
         - fp["cableSpec"]["sensorDistances"][()][0]
@@ -267,13 +276,11 @@ def get_metadata_asn(filepath: str) -> Dict[str, Any]:
     n = fp["cableSpec"].get(
         "refractiveIndex", fp["cableSpec"].get("refractiveIndexes")
     )[()]  # refractive index of the fiber
-    data_scale = fp["header"]["dataScale"][
-        ()
-    ]  # Scaling factor to multiply in order to express data in unit.
+    data_scale = fp["header"]["dataScale"][()]  # Scaling factor to multiply in order to express data in unit.
     sensitivity = fp["header"]["sensitivities"][()]
-    scale_factor = sensitivity  / data_scale
-    print(scale_factor)
-
+    # scale_factor = data_scale / sensitivity  # TODO: determine correct value for scale factor
+    scale_factor = sensitivity # value to convert DAS data from strain rate to strain
+    
     start_dist = fp["demodSpec"]["roiStart"][()] * fp["header"]["dx"][()]
     end_dist = fp["demodSpec"]["roiEnd"][()] * fp["header"]["dx"][()] + dx
 
@@ -470,13 +477,11 @@ def load_das_data(
     file_begin_time_utc : datetime.datetime
         The beginning time of the file, can be printed using file_begin_time_utc.strftime("%Y-%m-%d %H:%M:%S").
     """
-    if type(filename) != list:
-        filename = [filename]
-    for f in filename:
-        if not os.path.exists(f):
-            raise FileNotFoundError(f"File {f} not found")
+    
+    if not os.path.exists(filename):
+        raise FileNotFoundError(f"File {filename} not found")
 
-    if interrogator in ["optasense", "silixa", "onyx"]:
+    if interrogator in ["optasense", "onyx"]:
         with h5py.File(filename, "r") as fp:
             # Data matrix
             raw_data = fp["Acquisition/Raw[0]/RawData"]
@@ -502,6 +507,34 @@ def load_das_data(
             # For future save
             file_begin_time_utc = datetime.utcfromtimestamp(raw_data_time[0] * 1e-6)
 
+    elif interrogator == "silixa":
+        with TdmsFile.read(filename) as tdms:
+            group = tdms["Measurement"]
+            raw_data = np.asarray([group[channel].data for channel in group])
+            props = tdms.properties
+
+            gps_timestamp = props.get("GPSTimeStamp")
+            cpu_timestamp = props.get("CPUTimeStamp")
+
+            # Prefer GPS time if present, valid, and plausible.
+            if (
+                gps_timestamp is not None
+                and not np.isnat(gps_timestamp)
+                and gps_timestamp >= np.datetime64("2010-01-01")
+            ):
+                file_timestamp = gps_timestamp
+            else:
+                file_timestamp = cpu_timestamp
+            
+            # Convert NumPy datetime64 to a normal, naive Python datetime.
+            # The rest of DAS4Whales uses naive UTC datetimes.
+            file_begin_time_utc = file_timestamp.astype("datetime64[us]").item()
+
+            trace = raw_data[
+                selected_channels[0] : selected_channels[1] : selected_channels[2], :
+            ].astype(np.float64)
+            trace = raw2strain(trace, metadata)
+                   
     elif interrogator in ["fosina", "fosina_dxs", "dxs"]:
         with h5py.File(filename, "r") as fp:
             # Data matrix
@@ -542,31 +575,46 @@ def load_das_data(
                 file_begin_time_utc = datetime(2000, 1, 1, 1, 10, 10)
 
     elif interrogator == "asn":
-        if not SIMPLEDAS_AVAILABLE:
-            raise ImportError(
-                "simpledas package is required to load ASN interrogator data. Please install it using: pip install git+https://github.com/qgoestch/simpleDAS"
+        if SIMPLEDAS_AVAILABLE:
+ 
+            if type(filename) != list:
+                filename = [filename]
+            
+            sensitivity = metadata["scale_factor"]
+                
+            dfdas = sd.load_DAS_files(
+                filename,
+                chIndex=None,
+                samples=None,
+                sensitivitySelect=-3,
+                userSensitivity={
+                    "sensitivity": sensitivity,
+                    "sensitivityUnit": "rad/(m*strain)",
+                },
+                integrate=True,
+                unwr=True,
             )
 
-        dfdas = sd.load_DAS_files(
-            filename,
-            chIndex=None,
-            samples=None,
-            sensitivitySelect=-3,
-            userSensitivity={
-                "sensitivity": metadata["scale_factor"],
-                "sensitivityUnit": "rad/(m*strain)",
-            },
-            integrate=True,
-            unwr=True,
-        )
+            trace = dfdas.values.T
+            trace = trace[
+                selected_channels[0] : selected_channels[1] : selected_channels[2], :
+            ].astype(np.float64)
 
-        trace = dfdas.values.T
-        trace = trace[
-            selected_channels[0] : selected_channels[1] : selected_channels[2], :
-        ].astype(np.float64)
-
-        # For future save
-        file_begin_time_utc = dfdas.meta["time"]
+            # For future save
+            file_begin_time_utc = dfdas.meta["time"]
+        
+        else:
+            print(
+                "simpledas package is recommended to load ASN interrogator data. Please install it using: pip install git+https://github.com/qgoestch/simpleDAS"
+            )
+            fp = h5py.File(filename, "r")
+            raw_data = fp['data']
+            scale = fp['header']['dataScale'][()]/fp['header']['sensitivities'][()]
+            dtrace = raw_data[:, selected_channels[0] : selected_channels[1] : selected_channels[2]].astype(np.float64).T
+            dtrace *= scale
+            trace = np.cumsum(dtrace, axis=1)*(1/metadata['fs'])
+            timestamp = fp['header']['time'][()]
+            file_begin_time_utc = datetime.utcfromtimestamp(timestamp)
 
     else:
         raise ValueError("Interrogator name incorrect or not supported")

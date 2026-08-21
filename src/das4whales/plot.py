@@ -9,7 +9,6 @@ Date: 2023-2024
 
 import matplotlib
 
-matplotlib.use("QtAgg")
 import numpy as np
 import scipy.signal as sp
 import matplotlib.pyplot as plt
